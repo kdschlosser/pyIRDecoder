@@ -34,10 +34,179 @@ class Universal(protocol_base.IrProtocolBase):
     IR decoder for unknown protocols.
     """
 
-    def decode(self, data, frequency):
+    def __decode_1(self, norm_data):
+        bit_encoding = 'pulsetime'
+        bits = []
 
-        norm_data = utils.clean_code(data[:], self.tolerance)
-        norm_data = utils.build_mce_rlc(norm_data)
+        bursts = norm_data[2:]
+        for i in range(0, len(bursts), 2):
+            mark, space = bursts[i], bursts[i + 1]
+            if [mark, space] not in bits and [mark, space] != norm_data[-2:]:
+                bits += [[mark, space]]
+
+        timings = []
+
+        last_pair = bits[0]
+
+        for pair in bits[1:]:
+            if (
+                (pair[0] > 0 > last_pair[0] and pair[1] < 0 < last_pair[1]) or
+                (pair[0] < 0 < last_pair[0] and pair[1] > 0 > last_pair[1])
+            ):
+                bit_encoding = 'biphase'
+                break
+
+            last_pair = pair
+
+        if bit_encoding == 'biphase':
+
+            if len(bits) > 2:
+                for mark_1, space_1 in bits[:]:
+                    for mark_2, space_2 in bits:
+                        if mark_2 == mark_1 and space_2 == space_1:
+                            continue
+
+                        if mark_1 > abs(space_2) and abs(space_1) > mark_2:
+                            mark = space_1 + mark_2
+                            space = mark_1 + space_2
+
+                        elif mark_1 < abs(space_2) and abs(space_1) < mark_2:
+                            mark = mark_2 + space_1
+                            space = space_2 + mark_1
+
+                        elif mark_1 // space_2 == -2 and space_2 * -2 == mark_1:
+                            mark = mark_1 // 2
+                            space = space_2
+
+                        elif space_1 // mark_2 == -2 and space_1 * -2 == mark_2:
+                            space = space_1 // 2
+                            mark = mark_2
+
+                        else:
+                            continue
+
+                        if mark == 0 or space == 0:
+                            continue
+
+                        if mark < 0 > space or mark > 0 < space:
+                            continue
+
+                        if [mark, space] not in timings:
+                            timings += [[mark, space]]
+
+                if len(timings) == 1:
+                    timings += [[timings[0][1], timings[0][0]]]
+
+                if len(timings) > 2:
+                    for mark_1, space_1 in timings:
+                        for mark_2, space_2 in timings:
+                            if mark_1 == mark_2 and space_1 == space_2:
+                                continue
+
+                            if mark_1 == mark_2 or space_1 == space_2:
+                                timings.remove([mark_2, space_2])
+
+                if len(timings) > 2:
+                    neg_count = 0
+                    pos_count = 0
+
+                    for mark, space in timings[:]:
+                        if mark < 0:
+                            neg_count += 1
+                        else:
+                            pos_count += 1
+                        if [space, mark] not in timings:
+                            timings.remove([mark, space])
+
+            e_mark, e_space = timings[0]
+
+            offset = 0
+            bursts = norm_data[1:-1]
+            for i, timing in enumerate(bursts[:]):
+
+                if timing == e_space or timing == e_mark:
+                    continue
+
+                elif timing / e_mark == 2:
+                    bursts[i + offset] = e_mark
+                    bursts.insert(i + offset, e_mark)
+                    offset += 1
+
+                elif timing / e_space == 2:
+                    bursts[i + offset] = e_space
+                    bursts.insert(i + offset, e_space)
+                    offset += 1
+
+                elif timing > 0 < e_mark or timing < 0 > e_mark:
+                    timings = [timings[1], timings[0]]
+                    bursts[i + offset] = e_mark
+
+                elif timing > 0 < e_space or timing < 0 > e_space:
+                    timings = [timings[1], timings[0]]
+                    bursts[i + offset] = e_space
+
+            pairs = []
+            pair = []
+            for item in bursts:
+                if pair:
+                    if pair[0] == e_mark:
+                        if item == e_space:
+                            pair += [item]
+                            pairs += [pair[:]]
+                            del pair[:]
+                        else:
+                            pair += [e_space]
+                            pairs += [pair[:]]
+                            del pair[:]
+                            pair += [item]
+
+                    elif pair[0] == e_space:
+                        if item == e_mark:
+                            pair += [item]
+                            pairs += [pair[:]]
+                            del pair[:]
+                        else:
+                            pair += [e_mark]
+                            pairs += [pair[:]]
+                            del pair[:]
+                            pair += [item]
+                else:
+                    pair += [item]
+
+            if pair:
+                if len(pair) == 1:
+                    if pair[0] == e_mark:
+                        pair += [e_space]
+                    else:
+                        pair += [e_mark]
+                pairs += [pair[:]]
+
+        else:
+            pairs = []
+            timings = bits[:2]
+
+            for i in range(0, len(norm_data), 2):
+                mark = norm_data[i]
+                space = norm_data[i + 1]
+
+                if [mark, space] in timings:
+                    pairs += [[mark, space]]
+
+                elif i + 1 == len(norm_data) - 1:
+                    for e_mark, e_space in timings:
+                        if mark == e_mark:
+                            pairs += [[mark, e_space]]
+                            break
+
+        code = 0
+
+        for i, pair in enumerate(pairs):
+            bit = timings.index(pair)
+            code = self._set_bit(code, i, bit)
+
+        return code
+
+    def __decode_2(self, norm_data):
 
         for item in norm_data[:]:
             if norm_data.count(item) == 1:
@@ -70,8 +239,18 @@ class Universal(protocol_base.IrProtocolBase):
             mask <<= 1
         code |= mask
 
-        params = {'CODE': code, 'frequency': frequency}
+        return code
 
+    def decode(self, data, frequency=0):
+        norm_data = utils.clean_code(data[:], self.tolerance)
+        norm_data = utils.build_mce_rlc(norm_data)
+
+        try:
+            code = self.__decode_1(norm_data[:])
+        except:
+            code = self.__decode_2(norm_data[:])
+
+        params = {'CODE': code, 'frequency': frequency}
         code = protocol_base.IRCode(self, data, norm_data, params)
 
         return code
