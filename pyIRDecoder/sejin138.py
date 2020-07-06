@@ -136,7 +136,7 @@ class Sejin138(protocol_base.IrProtocolBase):
 
         params = dict(function=2, sub_device=165, device=53, extended_function=7)
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         raise NotImplementedError

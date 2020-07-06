@@ -79,7 +79,7 @@ class GIRG(protocol_base.IrProtocolBase):
 
         params = [dict(device=132, sub_device=2, function=52)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=132, sub_device=2, function=52)

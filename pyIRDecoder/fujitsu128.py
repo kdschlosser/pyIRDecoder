@@ -157,7 +157,7 @@ class Fujitsu128(protocol_base.IrProtocolBase):
             a9=52, a10=169, a11=196, a12=53, a13=160, a14=170, a15=253
         )]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(

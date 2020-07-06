@@ -83,7 +83,7 @@ class NovaPace(protocol_base.IrProtocolBase):
 
         params = [dict(sub_device=72, function=241, toggle=1, device=335)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(sub_device=72, function=241, toggle=1, device=335)

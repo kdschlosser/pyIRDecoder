@@ -175,15 +175,15 @@ class Nokia32(protocol_base.IrProtocolBase):
         return [packet]
 
     def _test_decode(self):
-        rlc = [
+        rlc = [[
             417, -278, 167, -444, 167, -278, 167, -611, 167, -778, 167, -444, 167, -778, 167, -444,
             167, -278, 167, -278, 167, -278, 167, -611, 167, -278, 167, -278, 167, -278, 167, -611,
             167, -444, 167, -89361,
-        ]
+        ]]
 
-        params = dict(function=9, toggle=0, device=75, x=8, sub_device=116)
+        params = [dict(function=9, toggle=0, device=75, x=8, sub_device=116)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=9, toggle=0, device=75, x=8, sub_device=116)

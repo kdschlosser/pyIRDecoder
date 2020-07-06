@@ -76,7 +76,7 @@ class Konka(protocol_base.IrProtocolBase):
 
         params = [dict(device=34, function=23)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=186, function=189)

@@ -74,6 +74,12 @@ from .denon_k import DenonK  # NOQA
 from .dgtec import Dgtec  # NOQA
 from .digivision import Digivision  # NOQA
 from .directv import DirecTV  # NOQA
+from .directv0 import DirecTV0  # NOQA
+from .directv1 import DirecTV1  # NOQA
+from .directv2 import DirecTV2  # NOQA
+from .directv3 import DirecTV3  # NOQA
+from .directv4 import DirecTV4  # NOQA
+from .directv5 import DirecTV5  # NOQA
 from .dishnetwork import DishNetwork  # NOQA
 from .dishplayer import DishPlayer  # NOQA
 from .dyson import Dyson  # NOQA
@@ -241,6 +247,12 @@ _DECODERS = [
     Dgtec,
     Digivision,
     DirecTV,
+    DirecTV0,
+    DirecTV1,
+    DirecTV2,
+    DirecTV3,
+    DirecTV4,
+    DirecTV5,
     DishNetwork,
     DishPlayer,
     Dyson,

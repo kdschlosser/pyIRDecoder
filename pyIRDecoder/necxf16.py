@@ -85,7 +85,7 @@ class NECxf16(protocol_base.IrProtocolBase):
 
         params = [dict(function=79, sub_device=139, device=91, extended_function=128)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=79, sub_device=139, device=91, extended_function=128)

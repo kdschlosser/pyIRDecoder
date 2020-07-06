@@ -95,7 +95,7 @@ class CanalSat(protocol_base.IrProtocolBase):
 
         params = [dict(device=3, function=126, sub_device=52)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=3, function=126, sub_device=52)

@@ -104,7 +104,7 @@ class Apple(protocol_base.IrProtocolBase):
 
         params = [dict(device=45, function=10, pair_id=241)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=45, function=10, pair_id=241)

@@ -298,13 +298,13 @@ class Sky(protocol_base.IrProtocolBase):
         function = REMOTE_SUBDEVICE << 8 | 0x5C
         rlc = self.encode(function)
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
         params = [dict(function=0xF5)]
         function = KEYBOARD_SUBDEVICE << 8 | 0xF5
         rlc = self.encode(function)
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=40, toggle=1, device=138, sub_device=5)

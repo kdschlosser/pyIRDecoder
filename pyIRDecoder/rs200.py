@@ -146,7 +146,7 @@ class Rs200(protocol_base.IrProtocolBase):
 
         params = [dict(function=0, device=4, h2=1, h3=2, h1=3, h4=2)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=0, device=4, h2=1, h3=2, h1=3, h4=2)

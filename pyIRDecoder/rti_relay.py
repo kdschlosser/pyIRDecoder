@@ -104,7 +104,7 @@ class RTIRelay(protocol_base.IrProtocolBase):
 
         params = [dict(device=57, function=1)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=57, function=1)

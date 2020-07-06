@@ -261,7 +261,7 @@ class Humax4Phase(protocol_base.IrProtocolBase):
             dict(device=49, function=83, sub_device=28, toggle=1)
         ]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=49, function=83, sub_device=28)

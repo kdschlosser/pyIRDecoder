@@ -104,7 +104,7 @@ class Samsung36(protocol_base.IrProtocolBase):
 
         params = [dict(function=169, sub_device=196, device=84, extended_function=0)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=169, sub_device=196, device=84, extended_function=0)

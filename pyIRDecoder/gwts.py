@@ -32,7 +32,6 @@ from . import DecodeError
 TIMING = 417
 
 
-# TODO: complete
 class GwtS(protocol_base.IrProtocolBase):
     """
     IR decoder for the GwtS protocol.
@@ -97,7 +96,7 @@ class GwtS(protocol_base.IrProtocolBase):
 
         params = [dict(device=159, function=4, crc=193)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=159, function=4, crc=193)

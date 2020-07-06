@@ -50,7 +50,7 @@ class RECS800068(recs800045.RECS800045.__class__):
 
         params = [dict(function=32, toggle=0, device=4)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
 
 RECS800068 = RECS800068()

@@ -102,7 +102,7 @@ class F12(protocol_base.IrProtocolBase):
 
         params = [None, dict(device=5, function=228, sub_device=1)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=5, function=228, sub_device=1)

@@ -83,7 +83,7 @@ class F32(protocol_base.IrProtocolBase):
 
         params = [dict(device=48, function=243, sub_device=137, e=118)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=48, function=243, sub_device=137, e=118)

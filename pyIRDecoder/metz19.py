@@ -103,7 +103,7 @@ class Metz19(protocol_base.IrProtocolBase):
 
         params = [dict(function=0, toggle=1, device=3)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=0, toggle=1, device=3)

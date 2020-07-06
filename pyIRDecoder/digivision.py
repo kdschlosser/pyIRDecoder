@@ -104,7 +104,7 @@ class Digivision(protocol_base.IrProtocolBase):
 
         params = [dict(function=207, d3=79, d2=86, device=211)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=207, device3=79, device2=86, device=211)

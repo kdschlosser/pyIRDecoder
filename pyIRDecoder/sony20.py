@@ -89,7 +89,7 @@ class Sony20(protocol_base.IrProtocolBase):
 
         params = [dict(device=6, function=24, sub_device=137)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=6, function=24, sub_device=137)

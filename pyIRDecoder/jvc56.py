@@ -113,7 +113,7 @@ class JVC56(protocol_base.IrProtocolBase):
 
         params = [dict(device=225, function=111, sub_device=237, x=100)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=225, function=111, sub_device=237, x=100)

@@ -104,7 +104,7 @@ class RC6M28(protocol_base.IrProtocolBase):
 
         params = [dict(function=4, mode=0, toggle=1, device=213, sub_device=3701)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=4, mode=0, toggle=1, device=213, sub_device=3701)

@@ -132,24 +132,10 @@ class StreamZap(protocol_base.IrProtocolBase):
         return [packet]
 
     def _test_decode(self):
-        import random
+        rlc = self.encode(30, 0x0B, 1)
+        params = [dict(device=30, function=0x0B, toggle=1)]
 
-        packets = []
-
-        for function in range(0x00, 0x24):
-            if function == 0x2F:
-                continue
-
-            device = random.randrange(0, 63)
-            toggle = 1
-
-            rlc = self.encode(device, function, toggle)
-            params = [dict(device=device, function=function, toggle=toggle)]
-
-            packets += [[rlc, params]]
-
-        for rlc, params in packets:
-            protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=10, toggle=1, device=51)

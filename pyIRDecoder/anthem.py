@@ -155,7 +155,7 @@ class Anthem(protocol_base.IrProtocolBase):
 
         params = [None, None, dict(function=157, sub_device=250, device=54)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=97, sub_device=52, device=46)

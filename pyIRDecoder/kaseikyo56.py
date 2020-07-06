@@ -118,7 +118,7 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
 
         params = [dict(device=4, extended_function=126, function=45, g=175, mode=59, n=165, sub_device=86)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=4, extended_function=126, function=45, g=175, mode=59, n=165, sub_device=86)

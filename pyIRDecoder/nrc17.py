@@ -186,7 +186,7 @@ class NRC17(protocol_base.IrProtocolBase):
             None,
         ]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc_codes, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc_codes, params)
 
     def _test_encode(self):
         params = dict(device=14, function=140)

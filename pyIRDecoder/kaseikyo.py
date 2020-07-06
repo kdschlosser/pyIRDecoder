@@ -126,7 +126,7 @@ class Kaseikyo(protocol_base.IrProtocolBase):
 
         params = [dict(device=5, extended_function=14, function=192, mode=217, n=244, sub_device=131)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=5, extended_function=14, function=192, mode=217, n=244, sub_device=131)

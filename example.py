@@ -85,6 +85,8 @@ class TestBase(object):
                 raise ValueError(key + ', ' + str(val) + ', ' + str(v))
 
         print('success', code)
+        print('decoded friendly', code)
+        print('decoded hexdecimal', code.hexdecimal)
 
         stop = time.time()
         decoding_times.append((stop - start) * 1000)
@@ -216,6 +218,36 @@ class Digivision(TestBase):
 class DirecTV(TestBase):
     decoder = ir_decoder.DirecTV
     encoder = ir_encoder.DirecTV
+
+
+class DirecTV0(TestBase):
+    decoder = ir_decoder.DirecTV0
+    encoder = ir_encoder.DirecTV0
+
+
+class DirecTV1(TestBase):
+    decoder = ir_decoder.DirecTV1
+    encoder = ir_encoder.DirecTV1
+
+
+class DirecTV2(TestBase):
+    decoder = ir_decoder.DirecTV2
+    encoder = ir_encoder.DirecTV2
+
+
+class DirecTV3(TestBase):
+    decoder = ir_decoder.DirecTV3
+    encoder = ir_encoder.DirecTV3
+
+
+class DirecTV4(TestBase):
+    decoder = ir_decoder.DirecTV4
+    encoder = ir_encoder.DirecTV4
+
+
+class DirecTV5(TestBase):
+    decoder = ir_decoder.DirecTV5
+    encoder = ir_encoder.DirecTV5
 
 
 class DishNetwork(TestBase):
@@ -1028,7 +1060,3 @@ if __name__ == '__main__':
     Tivo.test()
 
     print('average decoding time:', sum(decoding_times) / float(len(decoding_times)), 'ms')
-
-
-
-

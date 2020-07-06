@@ -151,7 +151,7 @@ class XBoxOne(protocol_base.IrProtocolBase):
         for function in XBOX_ONE_COMMANDS.keys():
             rlc = self.encode(function)
             params = [dict(function=function)]
-            protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+            return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=11, function=91, sub_device=125)

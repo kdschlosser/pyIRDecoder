@@ -175,7 +175,7 @@ class MCE(protocol_base.IrProtocolBase):
             rlc = self.encode(i, 1)
             params = [dict(function=i, toggle=1)]
 
-            protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+            return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=208, toggle=1)

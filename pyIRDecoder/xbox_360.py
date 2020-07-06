@@ -174,7 +174,7 @@ class XBox360(protocol_base.IrProtocolBase):
             packets += [[rlc, params]]
 
         for rlc, params in packets:
-            protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+            return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=128, toggle=0, device=85, sub_device=106)

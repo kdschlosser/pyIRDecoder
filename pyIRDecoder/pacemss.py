@@ -78,7 +78,7 @@ class PaceMSS(protocol_base.IrProtocolBase):
         ]]
 
         params = [dict(function=152, toggle=0, device=0)]
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=152, toggle=0, device=0)

@@ -112,7 +112,7 @@ class Panasonic(protocol_base.IrProtocolBase):
 
         params = [dict(device=248, function=176, sub_device=173)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=248, function=176, sub_device=173)

@@ -96,7 +96,7 @@ class Thomson(protocol_base.IrProtocolBase):
 
         params = [dict(function=33, toggle=0, device=12)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=33, toggle=0, device=12)

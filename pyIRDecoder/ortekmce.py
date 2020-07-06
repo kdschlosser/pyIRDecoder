@@ -120,7 +120,7 @@ class OrtekMCE(protocol_base.IrProtocolBase):
             dict(device=30, function=62, p=2)
         ]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=30, function=62)

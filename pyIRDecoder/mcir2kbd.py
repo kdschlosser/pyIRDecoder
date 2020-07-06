@@ -128,7 +128,7 @@ class MCIR2kbd(protocol_base.IrProtocolBase):
 
         params = [dict(function=191, mode=49)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=191, mode=49)

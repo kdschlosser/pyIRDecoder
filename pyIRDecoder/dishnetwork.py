@@ -99,7 +99,7 @@ class DishNetwork(protocol_base.IrProtocolBase):
 
         params = [dict(device=5, function=62, sub_device=26)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=5, function=62, sub_device=26)

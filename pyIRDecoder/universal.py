@@ -41,6 +41,7 @@ class Universal(protocol_base.IrProtocolBase):
         bursts = norm_data[2:]
         for i in range(0, len(bursts), 2):
             mark, space = bursts[i], bursts[i + 1]
+
             if [mark, space] not in bits and [mark, space] != norm_data[-2:]:
                 bits += [[mark, space]]
 
@@ -48,10 +49,12 @@ class Universal(protocol_base.IrProtocolBase):
 
         last_pair = bits[0]
 
-        for pair in bits[1:]:
+        for i, pair in enumerate(bits[1:]):
             if (
                 (pair[0] > 0 > last_pair[0] and pair[1] < 0 < last_pair[1]) or
-                (pair[0] < 0 < last_pair[0] and pair[1] > 0 > last_pair[1])
+                (pair[0] < 0 < last_pair[0] and pair[1] > 0 > last_pair[1]) or
+                (pair[0] == last_pair[0] * 2 and (pair[1] == last_pair[1] or pair[1] == last_pair[1] * 2)) or
+                (pair[1] == last_pair[1] * 2 and (pair[0] == last_pair[0] or pair[0] == last_pair[0] * 2))
             ):
                 bit_encoding = 'biphase'
                 break
@@ -59,14 +62,17 @@ class Universal(protocol_base.IrProtocolBase):
             last_pair = pair
 
         if bit_encoding == 'biphase':
-
             if len(bits) > 2:
                 for mark_1, space_1 in bits[:]:
                     for mark_2, space_2 in bits:
                         if mark_2 == mark_1 and space_2 == space_1:
                             continue
 
-                        if mark_1 > abs(space_2) and abs(space_1) > mark_2:
+                        if space_1 == space_2 and abs(mark_2) != abs(space_2):
+                            mark = -space_2
+                            space = space_2
+
+                        elif mark_1 > abs(space_2) and abs(space_1) > mark_2:
                             mark = space_1 + mark_2
                             space = mark_1 + space_2
 
@@ -181,11 +187,14 @@ class Universal(protocol_base.IrProtocolBase):
                         pair += [e_mark]
                 pairs += [pair[:]]
 
+            encoding = 'msb'
+
         else:
             pairs = []
             timings = bits[:2]
 
-            for i in range(0, len(norm_data), 2):
+            bursts = norm_data[2:]
+            for i in range(0, len(bursts), 2):
                 mark = norm_data[i]
                 space = norm_data[i + 1]
 
@@ -198,11 +207,23 @@ class Universal(protocol_base.IrProtocolBase):
                             pairs += [[mark, e_space]]
                             break
 
+            if norm_data[:2] in timings:
+                bursts.insert(0, norm_data[:2])
+
+            encoding = 'lsb'
+
         code = 0
 
-        for i, pair in enumerate(pairs):
-            bit = timings.index(pair)
-            code = self._set_bit(code, i, bit)
+        if encoding == 'lsb':
+            for i, pair in enumerate(pairs):
+                bit = timings.index(pair)
+                code = self._set_bit(code, i, bit)
+        else:
+            for i in range(len(pairs) - 1, -1, -1):
+                pair = pairs[i]
+                pos = ~(i - len(pairs))
+                bit = timings.index(pair)
+                code = self._set_bit(code, pos, bit)
 
         return code
 
@@ -264,9 +285,9 @@ class Universal(protocol_base.IrProtocolBase):
             564, -564, 564, -1692, 564, -564, 564, -564, 564, -1692, 564, -43992,
         ]]
 
-        params = [dict(code=0x3755F777DDDFD7F54)]
+        params = [dict(code=0x6B98CF7A)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
 
 Universal = Universal()

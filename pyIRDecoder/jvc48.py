@@ -109,7 +109,7 @@ class JVC48(protocol_base.IrProtocolBase):
 
         params = [dict(device=115, function=227, sub_device=242)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=115, function=227, sub_device=242)

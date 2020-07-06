@@ -103,7 +103,7 @@ class MCIR2mouse(protocol_base.IrProtocolBase):
 
         params = [dict(function=10, middle=30, right=1, y=48, x=92, left=1)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=10, middle=30, right=1, y=48, x=92, left=1)

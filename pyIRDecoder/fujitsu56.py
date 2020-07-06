@@ -106,7 +106,7 @@ class Fujitsu56(protocol_base.IrProtocolBase):
 
         params = [dict(device=137, e=3, function=229, sub_device=142, x=180)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=137, e=3, function=229, sub_device=142, x=180)

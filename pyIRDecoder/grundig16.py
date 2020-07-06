@@ -114,7 +114,7 @@ class Grundig16(protocol_base.IrProtocolBase):
         ]]
 
         params = [dict(device=21, function=131, toggle=1)]
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         return

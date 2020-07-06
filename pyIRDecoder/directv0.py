@@ -26,30 +26,24 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadIn
+
+TIMING = 600
 
 
-TIMING = 1000.0 / 36.0
-
-
-class Nokia12(protocol_base.IrProtocolBase):
+class DirecTV0(protocol_base.IrProtocolBase):
     """
-    IR decoder for the Nokia12 protocol.
+    IR decoder for the DirecTV0 protocol.
     """
-    irp = '{36k,1p,msb}<6,-10|6,-16|6,-22|6,-28>(15,-10,D:4,F:8,6,^100m)*'
-    frequency = 36000
-    bit_count = 12
+    irp = '{40k,600,msb}<1,-1|1,-2|2,-1|2,-2>([10][5],-2,D:4,F:8,C:4,1,-15){C=7*(F:2:6)+5*(F:2:4)+3*(F:2:2)+(F:2)}'
+    frequency = 40000
+    bit_count = 16
     encoding = 'msb'
 
-    _lead_in = [int(TIMING * 15), int(-TIMING * 10)]
-    _lead_out = [int(TIMING), 108000]
+    _lead_in = [TIMING * 10, -TIMING * 2]
+    _lead_out = [TIMING, -TIMING * 15]
     _middle_timings = []
-    _bursts = [
-        [int(TIMING * 6), int(-TIMING * 10)],
-        [int(TIMING * 6), int(-TIMING * 16)],
-        [int(TIMING * 6), int(-TIMING * 22)],
-        [int(TIMING * 6), int(-TIMING * 28)]
-    ]
+    _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 2], [TIMING * 2, -TIMING], [TIMING * 2, -TIMING * 2]]
 
     _repeat_lead_in = []
     _repeat_lead_out = []
@@ -58,16 +52,33 @@ class Nokia12(protocol_base.IrProtocolBase):
     _parameters = [
         ['D', 0, 3],
         ['F', 4, 11],
+        ['CHECKSUM', 12, 15]
     ]
     # [D:0..15,F:0..255]
     encode_parameters = [
         ['device', 0, 15],
-        ['function', 0, 255],
+        ['function', 0, 255]
     ]
+
+    def _calc_checksum(self, function):
+        # {C=7*(F:2:6)+5*(F:2:4)+3*(F:2:2)+(F:2)}
+        c = (
+            7 * self._get_bits(function, 6, 7) +
+            5 * self._get_bits(function, 4, 5) +
+            3 * self._get_bits(function, 2, 3) +
+            self._get_bits(function, 0, 1)
+        )
+
+        return self._get_bits(c, 0, 3)
 
     def decode(self, data, frequency=0):
         if not self._match(frequency, self.frequency, self.frequency_tolerance):
             raise DecodeError('Invalid frequency')
+
+        if self._last_code is not None:
+            self._lead_in[0] = TIMING * 5
+        else:
+            self._lead_in[0] = TIMING * 10
 
         cleaned_code = []
         original_code = data[:]
@@ -77,28 +88,31 @@ class Nokia12(protocol_base.IrProtocolBase):
         code = code[2:]
 
         if (
-                self._match(mark, self._lead_in[0]) and
-                self._match(space, self._lead_in[1])
+            self._match(mark, self._lead_in[0]) and
+            self._match(space, self._lead_in[1])
         ):
             cleaned_code += self._lead_in[:]
-
-        mark, space = code[-2:]
-        code = code[:-2]
-        lead_out = []
-
-        tt = sum(abs(item) for item in original_code[:-1])
-        tt = -(self._lead_out[-1] - tt)
-        if (
-                self._match(self._lead_out[0], mark) and
-                self._match(tt, space)
-        ):
-            lead_out += self._lead_out[:1]
         else:
-            raise DecodeError('Invalid lead out')
+            self._last_code = None
+            raise DecodeError('Invalid lead in')
+
+        lead_out = code[-2:]
+        code = code[:-2]
+
+        for i, burst in enumerate(lead_out):
+            e_burst = self._lead_out[i]
+
+            if self._match(burst, e_burst):
+                lead_out[i] = e_burst
+            else:
+                self._last_code = None
+                raise DecodeError('Invalid lead out')
 
         if len(code) > self.bit_count:
+            self._last_code = None
             raise DecodeError('To many bits')
         if len(code) < self.bit_count:
+            self._last_code = None
             raise DecodeError('Not enough bits')
 
         bits = []
@@ -114,6 +128,8 @@ class Nokia12(protocol_base.IrProtocolBase):
                     break
             else:
                 raise DecodeError('Invalid burst pair')
+
+        cleaned_code += lead_out
 
         decoded = []
 
@@ -133,50 +149,86 @@ class Nokia12(protocol_base.IrProtocolBase):
 
             params[key] = value
 
-        cleaned_code += lead_out
+        checksum = self._calc_checksum(params['F'])
 
-        tt = sum(abs(item) for item in cleaned_code)
-        tt = -(self._lead_out[1] - tt)
-        cleaned_code += [tt]
+        if checksum != params['CHECKSUM']:
+            raise DecodeError('Invalid checksum')
+
         normalized_code = []
 
         for pulse in cleaned_code:
             if (
-                    len(normalized_code) and
-                    (normalized_code[-1] < 0 > pulse or normalized_code[-1] > 0 < pulse)
+                len(normalized_code) and
+                (normalized_code[-1] < 0 > pulse or normalized_code[-1] > 0 < pulse)
             ):
                 normalized_code[-1] += pulse
                 continue
 
             normalized_code += [pulse]
 
-        return protocol_base.IRCode(self, original_code, normalized_code, params)
+        if self._last_code is None:
+            self._last_code = protocol_base.IRCode(
+                self,
+                original_code,
+                normalized_code,
+                params
+            )
+            raise RepeatLeadIn
 
-    def _get_timing(self, num, index):
-        value = self._get_bits(num, index, index + 1)
-        return self._bursts[value]
+        last = self._last_code
+
+        if last.device != params['D'] or last.function != params['F']:
+            self._last_code = None
+            raise DecodeError('Code does not match')
+
+        return last
 
     def encode(self, device, function):
-        packet = self._build_packet(
+        checksum = self._calc_checksum(function)
+        lead_in = self._lead_in[0]
+
+        self._lead_in[0] = TIMING * 10
+
+        packet1 = self._build_packet(
             list(self._get_timing(device, i) for i in range(0, 4, 2)),
-            list(self._get_timing(function, i) for i in range(0, 8, 2))
+            list(self._get_timing(function, i) for i in range(0, 8, 2)),
+            list(self._get_timing(checksum, i) for i in range(0, 4, 2))
         )
 
-        return [packet]
+        self._lead_in[0] = TIMING * 5
+
+        packet2 = self._build_packet(
+            list(self._get_timing(device, i) for i in range(0, 4, 2)),
+            list(self._get_timing(function, i) for i in range(0, 8, 2)),
+            list(self._get_timing(checksum, i) for i in range(0, 4, 2))
+        )
+
+        self._lead_in[0] = lead_in
+
+        return [packet1, packet2]
 
     def _test_decode(self):
-        rlc = [[
-            417, -278, 167, -611, 167, -778, 167, -444, 167, -778, 167, -611, 167, -611,
-            167, -94306,
-        ]]
+        rlc = [
+            [
+                +6000, -1200, +1200, -600, +600, -600, +1200, -1200, +600, -600, +600, -1200, +1200, -600, +1200, -600,
+                +1200, -600, +600, -9000
+            ],
+            [
+                +3000, -1200, +1200, -600, +600, -600, +1200, -1200, +600, -600, +600, -1200, +1200, -600, +1200, -600,
+                +1200, -600, +600, -9000
+            ]
+        ]
 
-        params = [dict(device=11, function=122)]
+        params = [
+            None,
+            dict(device=8, function=198)
+        ]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
-        params = dict(device=11, function=122)
+        params = dict(device=15, function=124)
         protocol_base.IrProtocolBase._test_encode(self, params)
 
 
-Nokia12 = Nokia12()
+DirecTV0 = DirecTV0()

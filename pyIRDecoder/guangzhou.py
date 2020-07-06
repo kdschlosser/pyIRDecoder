@@ -112,7 +112,7 @@ class GuangZhou(protocol_base.IrProtocolBase):
         ]
         params = [dict(device=20, function=4, sub_device=102)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(device=20, function=4, sub_device=102)

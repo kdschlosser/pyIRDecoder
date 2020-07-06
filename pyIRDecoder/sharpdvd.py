@@ -130,7 +130,7 @@ class SharpDVD(protocol_base.IrProtocolBase):
 
         params = [dict(function=5, sub_device=184, device=11, extended_function=10)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=5, sub_device=184, device=11, extended_function=10)

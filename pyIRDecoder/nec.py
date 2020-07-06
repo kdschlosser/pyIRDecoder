@@ -112,7 +112,7 @@ class NEC(protocol_base.IrProtocolBase):
 
         params = [dict(function=97, sub_device=52, device=46)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=97, sub_device=52, device=46)

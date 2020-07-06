@@ -52,7 +52,7 @@ class RC6(protocol_base.IrProtocolBase):
 
     _parameters = [
         ['C0', 0, 0],
-        ['C1', 1, 3],
+        ['M', 1, 3],
         ['T', 4, 4],
         ['D', 5, 12],
         ['F', 13, 20],
@@ -67,14 +67,14 @@ class RC6(protocol_base.IrProtocolBase):
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
-        if code.c0 != 1 or code.c1 != 0:
+        if code.c0 != 1 or code.mode != 0:
             raise DecodeError('Checksum failed')
 
         return code
 
     def encode(self, device, function, toggle):
         c0 = 1
-        c1 = 0
+        mode = 0
 
         toggle = int(not toggle)
 
@@ -83,7 +83,7 @@ class RC6(protocol_base.IrProtocolBase):
 
         packet = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
-            list(self._get_timing(c1, i) for i in range(3)),
+            list(self._get_timing(mode, i) for i in range(3)),
             toggle,
             list(self._get_timing(device, i) for i in range(8)),
             list(self._get_timing(function, i) for i in range(8)),
@@ -101,7 +101,7 @@ class RC6(protocol_base.IrProtocolBase):
 
         params = [dict(function=143, toggle=1, device=156)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=143, toggle=1, device=156)

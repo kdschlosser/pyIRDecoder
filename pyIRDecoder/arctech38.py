@@ -37,20 +37,18 @@ class Arctech38(arctech.Arctech.__class__):
     frequency = 38000
 
     def _test_decode(self):
-        return
-        rlc = [
+        rlc = [[
             388, -1164, 388, -1164, 388, -1164, 1164, -388, 388, -1164, 1164, -388, 388, -1164,
             1164, -388, 388, -1164, 1164, -388, 388, -1164, 388, -1164, 388, -1164, 1164, -388,
             388, -1164, 388, -1164, 388, -1164, 388, -1164, 388, -1164, 1164, -388, 388, -1164,
             1164, -388, 388, -1164, 1164, -388, 388, -11364,
-        ]
+        ]]
 
-        params = dict(device=15, function=1, sub_device=6)
+        params = [dict(device=15, function=1, sub_device=6)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
-        return
         params = dict(device=15, function=1, sub_device=6)
         protocol_base.IrProtocolBase._test_encode(self, params)
 

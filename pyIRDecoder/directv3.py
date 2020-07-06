@@ -25,36 +25,17 @@
 # ***********************************************************************************
 
 # Local imports
-from . import dyson
-from . import protocol_base
+from . import directv1
 
-TIMING = 780
+TIMING = 600
 
 
-class Dyson2(dyson.Dyson.__class__):
+class DirecTV3(directv1.DirecTV1.__class__):
     """
-    IR decoder for the Dyson2 protocol.
+    IR decoder for the DirecTV3 protocol.
     """
-    irp = '{38k,780,lsb}<1,-1|1,-2>(3,-1,D:7,F:6,T:-2,1,-400m,3,-1,D:7,F:6,T:-2,1,-60m,(3,-1,1:1,1,-60m)*)'
-
-    _middle_timings = [(TIMING, -400000), (TIMING * 3, -TIMING)]
-
-    def _test_decode(self):
-        rlc = [[
-            2340, -780, 780, -1560, 780, -780, 780, -780, 780, -1560, 780, -780, 780, -780,
-            780, -1560, 780, -780, 780, -1560, 780, -780, 780, -780, 780, -1560, 780, -780,
-            780, -780, 780, -780, 780, -400000, 2340, -780, 780, -1560, 780, -780, 780, -780,
-            780, -1560, 780, -780, 780, -780, 780, -1560, 780, -780, 780, -1560, 780, -780,
-            780, -780, 780, -1560, 780, -780, 780, -780, 780, -780, 780, -60000,
-        ]]
-
-        params = [dict(function=18, toggle=0, device=73)]
-
-        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
-
-    def _test_encode(self):
-        params = dict(function=18, toggle=0, device=73)
-        protocol_base.IrProtocolBase._test_encode(self, params)
+    irp = '{38k,600,msb}<1,-1|1,-2|2,-1|2,-2>([10][5],-2,D:4,F:8,C:4,1,-50){C=7*(F:2:6)+5*(F:2:4)+3*(F:2:2)+(F:2)}'
+    frequency = 38000
 
 
-Dyson2 = Dyson2()
+DirecTV3 = DirecTV3()

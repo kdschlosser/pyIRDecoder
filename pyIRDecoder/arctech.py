@@ -62,7 +62,7 @@ class Arctech(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING * 16, -TIMING * 8]
     _lead_out = [TIMING, 108000]
-    _middle_timings = [{'start': -1, 'stop': 8, 'bursts': [[-TIMING * 2, TIMING * 2], [TIMING * 2, -TIMING * 2]]}]
+    _middle_timings = []
     _bursts = [[TIMING, -TIMING * 3], [TIMING * 3, -TIMING]]
 
     _repeat_lead_in = []
@@ -84,7 +84,6 @@ class Arctech(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
-        raise DecodeError
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         if code.c0 != 40 or code.c1 != 0:
@@ -103,7 +102,7 @@ class Arctech(protocol_base.IrProtocolBase):
         }
 
         return protocol_base.IRCode(
-            self.__class__.__name__,
+            self,
             code.original_code,
             code.normalized_code,
             params
@@ -129,7 +128,6 @@ class Arctech(protocol_base.IrProtocolBase):
         return [packet]
 
     def _test_decode(self):
-        return
         rlc = [[
             388, -1164, 388, -1164, 388, -1164, 1164, -388, 388, -1164, 1164, -388, 388, -1164, 388, -1164,
             388, -1164, 388, -1164, 388, -1164, 388, -1164, 388, -1164, 1164, -388, 388, -1164, 1164, -388,
@@ -139,10 +137,9 @@ class Arctech(protocol_base.IrProtocolBase):
 
         params = [dict(device=7, function=0, sub_device=13)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
-        return
         params = dict(device=7, function=0, sub_device=13)
         protocol_base.IrProtocolBase._test_encode(self, params)
 

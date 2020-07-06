@@ -123,7 +123,7 @@ class TeacK(protocol_base.IrProtocolBase):
 
         params = [dict(function=51, sub_device=159, device=12, x=11)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=51, sub_device=159, device=12, x=11)

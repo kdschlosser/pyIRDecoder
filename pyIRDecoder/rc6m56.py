@@ -101,7 +101,7 @@ class RC6M56(protocol_base.IrProtocolBase):
 
         params = [dict(function=38300368660491320, mode=2, toggle=1)]
 
-        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=38300368660491320, mode=2, toggle=1)

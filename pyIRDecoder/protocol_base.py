@@ -444,6 +444,9 @@ class IrProtocolBase(object):
         self.tolerance = 1
         if rlc is None:
             return
+
+        code = None
+
         for i in range(len(rlc)):
             data = rlc[i]
             param = params[i]
@@ -474,6 +477,8 @@ class IrProtocolBase(object):
 
                         print(code._stream_pairs)
                         raise RuntimeError
+
+        return code
 
     def _test_encode(self, params=None):
         if params is None:
