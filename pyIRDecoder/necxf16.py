@@ -64,15 +64,39 @@ class NECxf16(protocol_base.IrProtocolBase):
         ['extended_function', 0, 255]
     ]
 
-    def encode(self, device, sub_device, function, extended_function):
-        packet = self._build_packet(
-            list(self._get_timing(device, i) for i in range(8)),
-            list(self._get_timing(sub_device, i) for i in range(8)),
-            list(self._get_timing(function, i) for i in range(8)),
-            list(self._get_timing(extended_function, i) for i in range(8)),
+    def decode(self, data, frequency=0):
+        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if (
+                    self._last_code == code and
+                    self._last_code._code.get_value(0, 0) == self._get_bit(self._last_code.device, 0)
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
+        self._last_code = code
+        return code
+
+    def encode(self, device, sub_device, function, extended_function, repeat_count=0):
+        packet = [
+            self._build_packet(
+                list(self._get_timing(device, i) for i in range(8)),
+                list(self._get_timing(sub_device, i) for i in range(8)),
+                list(self._get_timing(function, i) for i in range(8)),
+                list(self._get_timing(extended_function, i) for i in range(8)),
+            )
+        ]
+
+        repeat = self._build_packet(
+            list(self._get_timing(device, i) for i in range(1))
         )
 
-        return [packet]
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

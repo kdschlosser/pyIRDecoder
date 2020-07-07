@@ -48,7 +48,6 @@ class Digivision(protocol_base.IrProtocolBase):
 
     _repeat_lead_in = [TIMING * 20, -TIMING * 20]
     _repeat_lead_out = [TIMING * 3, 108000]
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 7],
@@ -71,14 +70,22 @@ class Digivision(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         func_checksum = self._calc_checksum(code.function)
 
         if func_checksum != code.f_checksum:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, device2, device3, function):
+    def encode(self, device, device2, device3, function, repeat_count=0):
         func_checksum = self._calc_checksum(function)
 
         packet = self._build_packet(
@@ -90,7 +97,7 @@ class Digivision(protocol_base.IrProtocolBase):
             list(self._get_timing(func_checksum, i) for i in range(8)),
         )
 
-        return [packet]
+        return [packet] + self._build_repeat_packet(repeat_count)
 
     def _test_decode(self):
         rlc = [[

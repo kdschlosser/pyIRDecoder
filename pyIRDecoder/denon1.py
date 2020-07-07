@@ -39,8 +39,8 @@ class Denon1(denon.Denon.__class__):
     """
     irp = '{38k,264,lsb}<1,-3|1,-7>(D:5,F:8,0:2,1,-165)*'
 
-    def encode(self, device, function):
-        return [denon.Denon.encode(device, function)[0]]
+    def encode(self, device, function, repeat_count=0):
+        return denon.Denon.encode(device, function, repeat_count)
 
     def _test_decode(self):
         rlc = [[

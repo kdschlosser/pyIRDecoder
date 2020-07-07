@@ -64,7 +64,7 @@ class NECf16(protocol_base.IrProtocolBase):
         ['extended_function', 0, 255]
     ]
 
-    def encode(self, device, sub_device, function, extended_function):
+    def encode(self, device, sub_device, function, extended_function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(8)),
             list(self._get_timing(sub_device, i) for i in range(8)),
@@ -72,7 +72,7 @@ class NECf16(protocol_base.IrProtocolBase):
             list(self._get_timing(extended_function, i) for i in range(8)),
         )
 
-        return [packet]
+        return [packet] + self._build_repeat_packet(repeat_count)
 
     def _test_decode(self):
         rlc = [[

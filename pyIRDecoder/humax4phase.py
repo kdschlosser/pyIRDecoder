@@ -53,7 +53,7 @@ class Humax4Phase(protocol_base.IrProtocolBase):
     _parameters = [
         ['D', 0, 5],
         ['S', 6, 11],
-        ['C0', 12, 13],
+        ['T', 12, 13],
         ['F', 14, 20],
         ['F_CHECKSUM', 21, 21]
     ]
@@ -69,9 +69,6 @@ class Humax4Phase(protocol_base.IrProtocolBase):
         return f
 
     def decode(self, data, frequency=0):
-        if not self._match(frequency, self.frequency, self.frequency_tolerance):
-            raise DecodeError('Invalid frequency')
-
         cleaned_code = []
         original_code = data[:]
         code = data[:]
@@ -186,16 +183,6 @@ class Humax4Phase(protocol_base.IrProtocolBase):
 
             params[key] = value
 
-        f_checksum = self._calc_checksum(params['F'])
-
-        if f_checksum != params['F_CHECKSUM']:
-            raise DecodeError('Invalid checksum')
-
-        if params['C0'] == 0:
-            raise RepeatLeadIn
-        if params['C0'] != 1:
-            raise DecodeError('Invalid repeat')
-
         normalized_code = []
 
         for pulse in cleaned_code:
@@ -208,14 +195,34 @@ class Humax4Phase(protocol_base.IrProtocolBase):
 
             normalized_code += [pulse]
 
-        return protocol_base.IRCode(self, original_code, normalized_code, params)
+        code = protocol_base.IRCode(self, original_code, normalized_code, params)
+
+        f_checksum = self._calc_checksum(code.function)
+
+        if f_checksum != code.f_checksum:
+            raise DecodeError('Invalid checksum')
+
+        if code.toggle == 0:
+            if self._last_code is not None:
+                self._last_code.repeat_timer.stop()
+            self._last_code = code
+            raise RepeatLeadIn
+
+        if code.toggle == 1:
+            if self._last_code is None:
+                raise DecodeError('invalid frame')
+            if self._last_code != code:
+                raise DecodeError('Invalid frame')
+
+            return self._last_code
+
+        raise DecodeError('Invalid repeat')
 
     def _get_timing(self, num, index):
         value = self._get_bits(num, index, index + 1)
         return self._bursts[value]
 
-    def encode(self, device, sub_device, function):
-
+    def encode(self, device, sub_device, function, repeat_count=0):
         func_checksum = self._calc_checksum(function)
         func = 0
         for i in range(7):
@@ -225,12 +232,14 @@ class Humax4Phase(protocol_base.IrProtocolBase):
 
         toggle = 0
 
-        packet1 = self._build_packet(
-            list(self._get_timing(device, i) for i in range(0, 6, 2)),
-            list(self._get_timing(sub_device, i) for i in range(0, 6, 2)),
-            list(self._get_timing(toggle, i) for i in range(0, 2, 2)),
-            list(self._get_timing(func, i) for i in range(0, 8, 2)),
-        )
+        packet = [
+            self._build_packet(
+                list(self._get_timing(device, i) for i in range(0, 6, 2)),
+                list(self._get_timing(sub_device, i) for i in range(0, 6, 2)),
+                list(self._get_timing(toggle, i) for i in range(0, 2, 2)),
+                list(self._get_timing(func, i) for i in range(0, 8, 2)),
+            )
+        ]
 
         toggle = 1
 
@@ -241,7 +250,9 @@ class Humax4Phase(protocol_base.IrProtocolBase):
             list(self._get_timing(func, i) for i in range(0, 8, 2)),
         )
 
-        return [packet1, packet2]
+        packet += [packet2] * (repeat_count + 1)
+
+        return packet
 
     def _test_decode(self):
         rlc = [

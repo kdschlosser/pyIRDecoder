@@ -63,12 +63,20 @@ class InterVideoRC201(protocol_base.IrProtocolBase):
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         if code.c0 != 0 or code.c1 != 768:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, function):
+    def encode(self, function, repeat_count=0):
         c0 = 0
         c1 = 768
 
@@ -78,7 +86,7 @@ class InterVideoRC201(protocol_base.IrProtocolBase):
             list(self._get_timing(c1, i) for i in range(10))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

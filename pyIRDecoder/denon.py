@@ -40,14 +40,8 @@ class Denon(protocol_base.IrProtocolBase):
     bit_count = 15
     encoding = 'lsb'
 
-    _lead_in = []
     _lead_out = [TIMING, -TIMING * 165]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING * 3], [TIMING, -TIMING * 7]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 4],
@@ -65,11 +59,7 @@ class Denon(protocol_base.IrProtocolBase):
         return f
 
     def decode(self, data, frequency=0):
-        try:
-            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-        except DecodeError as err:
-            self._last_code = None
-            raise err
+        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         if code.checksum == 0:
             self._last_code = code
@@ -91,17 +81,21 @@ class Denon(protocol_base.IrProtocolBase):
                 func_checksum = self._calc_checksum(self._last_code.function)
 
                 if func_checksum != code.function:
-                    self._last_code = None
+                    self._last_code.reset_timer.start()
                     raise DecodeError('Checksum failed')
 
-                self._last_code = None
-                raise RepeatLeadOut
+                return self._last_code
 
-        else:
+            self._last_code.repeat_timer.stop()
             self._last_code = None
-            raise DecodeError('Invalid checksum')
+            raise DecodeError('dunno what happened?!?!?!')
 
-    def encode(self, device, function):
+        if self._last_code is not None:
+            self._last_code.reset_timer.start()
+
+        raise DecodeError('Invalid checksum')
+
+    def encode(self, device, function, repeat_count=0):
         c0 = 0
         c1 = 3
         func_checksum = self._calc_checksum(function)
@@ -117,7 +111,7 @@ class Denon(protocol_base.IrProtocolBase):
             list(self._get_timing(c1, i) for i in range(2)),
         )
 
-        return [packet1, packet2]
+        return [packet1, packet2] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [

@@ -48,12 +48,7 @@ class Blaupunkt(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING, -TIMING * 5]
     _lead_out = [-TIMING * 44]
-    _middle_timings = []
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['C0', 0, 0],
@@ -71,15 +66,13 @@ class Blaupunkt(protocol_base.IrProtocolBase):
         protocol_base.IrProtocolBase.__init__(self)
 
     def decode(self, data, frequency=0):
-
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
-            self._lead_out[0] = -TIMING * 44
-            try:
+            if self._lead_out[0] != -TIMING * 44:
+                self._lead_out[0] = -TIMING * 44
                 code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-            except DecodeError:
-                self.reset()
+            else:
                 raise
 
         if self._lead_out[0] == -TIMING * 44:
@@ -87,15 +80,14 @@ class Blaupunkt(protocol_base.IrProtocolBase):
                 if self._last_code is None:
                     raise DecodeError('Invalid repeat lead in')
                 else:
-                    self.reset()
+                    self._last_code.repeat_timer.stop()
                     raise DecodeError('Invalid repeat lead out')
 
             if self._last_code is None:
                 self._lead_out[0] = -TIMING * 236
                 raise RepeatLeadIn
-
             else:
-                self.reset()
+                self._last_code.repeat_timer.stop()
                 raise RepeatLeadOut
 
         if code.c0 != 1:
@@ -103,21 +95,15 @@ class Blaupunkt(protocol_base.IrProtocolBase):
 
         if self._last_code is None:
             self._last_code = code
-            code.repeat_timer.start()
             return code
 
         if self._last_code != code:
+            self._last_code.repeat_timer.start()
             raise DecodeError('Repeat code does not match')
 
-        if self._last_code.repeat_timer.is_running:
-            self._last_code.repeat_timer.cancel()
-            self._last_code.repeat_timer.start()
-            return self._last_code
+        return self._last_code
 
-        self.reset()
-        raise RepeatTimeoutExpired
-
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         c0 = 1
         d = 7
         f = 63
@@ -134,7 +120,7 @@ class Blaupunkt(protocol_base.IrProtocolBase):
 
         self._lead_out[0] = -TIMING * 236
 
-        packet = self._build_packet(
+        code = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(function, i) for i in range(6)),
             list(self._get_timing(device, i) for i in range(3))
@@ -150,7 +136,11 @@ class Blaupunkt(protocol_base.IrProtocolBase):
 
         self._lead_out[0] = _lead_out
 
-        return [lead_in, packet, lead_out]
+        packet = [lead_in, code]
+        packet += [code] * repeat_count
+        packet += [lead_out]
+
+        return packet
 
     def _test_decode(self):
         rlc = [

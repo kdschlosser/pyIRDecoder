@@ -48,7 +48,7 @@ class NECx(protocol_base.IrProtocolBase):
 
     _repeat_lead_in = [TIMING * 8, -TIMING * 8]
     _repeat_lead_out = [TIMING, 108000]
-    _repeat_bursts = []
+    _repeat_bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
     _parameters = [
         ['D', 0, 7],
@@ -69,24 +69,44 @@ class NECx(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                self._last_code._code.get_value(0, 0) == self._get_bit(self._last_code.device, 0)
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         func_checksum = self._calc_checksum(code.function)
 
         if func_checksum != code.f_checksum:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
         func_checksum = self._calc_checksum(function)
 
-        packet = self._build_packet(
-            list(self._get_timing(device, i) for i in range(8)),
-            list(self._get_timing(sub_device, i) for i in range(8)),
-            list(self._get_timing(function, i) for i in range(8)),
-            list(self._get_timing(func_checksum, i) for i in range(8)),
+        packet = [
+            self._build_packet(
+                list(self._get_timing(device, i) for i in range(8)),
+                list(self._get_timing(sub_device, i) for i in range(8)),
+                list(self._get_timing(function, i) for i in range(8)),
+                list(self._get_timing(func_checksum, i) for i in range(8)),
+            )
+        ]
+
+        repeat = self._build_packet(
+            list(self._get_timing(device, i) for i in range(1))
         )
 
-        return [packet]
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

@@ -59,19 +59,18 @@ class F32(protocol_base.IrProtocolBase):
         ['device', 0, 255],
         ['sub_device', 0, 255],
         ['function', 0, 255],
-        ['e', 0, 255]
+        ['extended_function', 0, 255]
     ]
 
-    def encode(self, device, sub_device, function, e):
-
+    def encode(self, device, sub_device, function, extended_function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(8)),
             list(self._get_timing(sub_device, i) for i in range(8)),
             list(self._get_timing(function, i) for i in range(8)),
-            list(self._get_timing(e, i) for i in range(8)),
+            list(self._get_timing(extended_function, i) for i in range(8)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[
@@ -81,12 +80,12 @@ class F32(protocol_base.IrProtocolBase):
             422, -1266, 1266, -422, 1266, -422, 1266, -422, 422, -1266, 1266, -422, 1266, -422, 422, -101266
         ]]
 
-        params = [dict(device=48, function=243, sub_device=137, e=118)]
+        params = [dict(device=48, function=243, sub_device=137, extended_function=118)]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
-        params = dict(device=48, function=243, sub_device=137, e=118)
+        params = dict(device=48, function=243, sub_device=137, extended_function=118)
         protocol_base.IrProtocolBase._test_encode(self, params)
 
 

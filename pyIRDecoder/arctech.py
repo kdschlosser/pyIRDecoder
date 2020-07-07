@@ -62,12 +62,7 @@ class Arctech(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING * 16, -TIMING * 8]
     _lead_out = [TIMING, 108000]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING * 3], [TIMING * 3, -TIMING]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 7],
@@ -108,7 +103,7 @@ class Arctech(protocol_base.IrProtocolBase):
             params
         )
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
         c0 = 40
         c1 = 0
 
@@ -125,7 +120,7 @@ class Arctech(protocol_base.IrProtocolBase):
             list(self._get_timing(c1, i) for i in range(1)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

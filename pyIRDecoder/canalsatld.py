@@ -43,12 +43,7 @@ class CanalSatLD(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING, -TIMING]
     _lead_out = [-85000]
-    _middle_timings = []
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 6],
@@ -73,16 +68,36 @@ class CanalSatLD(protocol_base.IrProtocolBase):
         func_checksum = self._calc_checksum(code.function)
 
         if func_checksum != code.f_checksum or code.c0 != 0:
+            if self._last_code:
+                self._lst_code.repeat_timer.start()
             raise DecodeError('Checksum failed')
+
+        if self._last_code is not None:
+            if self._last_code != code:
+                self._last_code.repeat_timer.stop()
+                self._last_code = None
+
+            elif code.toggle != 1:
+                self._last_code.repeat_timer.stop()
+                self._last_code = None
+                raise DecodeError('toggle bit out of sync')
+            else:
+                return self._last_code
+
+        if code.toggle == 0:
+            code._data['T'] = 1
+            self._last_code = code
+        else:
+            raise DecodeError('toggle bit incorrect')
 
         return code
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
         toggle = 0
         c0 = 0
         func_checksum = self._calc_checksum(function)
 
-        packet = self._build_packet(
+        lead_in = self._build_packet(
             list(self._get_timing(device, i) for i in range(7)),
             list(self._get_timing(sub_device, i) for i in range(6)),
             list(self._get_timing(toggle, i) for i in range(1)),
@@ -91,7 +106,21 @@ class CanalSatLD(protocol_base.IrProtocolBase):
             list(self._get_timing(func_checksum, i) for i in range(1)),
         )
 
-        return [packet]
+        packet = [lead_in]
+
+        toggle = 1
+        repeat = self._build_packet(
+            list(self._get_timing(device, i) for i in range(7)),
+            list(self._get_timing(sub_device, i) for i in range(6)),
+            list(self._get_timing(toggle, i) for i in range(1)),
+            list(self._get_timing(c0, i) for i in range(1)),
+            list(self._get_timing(function, i) for i in range(6)),
+            list(self._get_timing(func_checksum, i) for i in range(1)),
+        )
+
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

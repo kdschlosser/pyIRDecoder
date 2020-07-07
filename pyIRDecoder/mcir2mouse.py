@@ -78,7 +78,7 @@ class MCIR2mouse(protocol_base.IrProtocolBase):
 
         return code
 
-    def encode(self, middle, left, right, x, y, function):
+    def encode(self, middle, left, right, x, y, function, repeat_count=0):
         c0 = 8
 
         packet = self._build_packet(

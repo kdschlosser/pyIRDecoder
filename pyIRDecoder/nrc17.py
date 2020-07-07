@@ -87,48 +87,53 @@ class NRC17(protocol_base.IrProtocolBase):
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
-            self._lead_out = [-TIMING * 200]
-            try:
-                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-            except DecodeError:
-                self.reset()
+
+            lead_outs = [-TIMING * 28, -TIMING * 220, -TIMING * -200]
+            lead_outs.remove(self._lead_out[0])
+
+            for lead_out in lead_outs:
+                try:
+                    self._lead_out[0] = lead_out
+                    code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+                    break
+                except DecodeError:
+                    pass
+            else:
                 raise
 
         if code.c0 != 1:
-            self.reset()
             raise DecodeError('Invalid checksum')
 
         checksum = self._calc_checksum(code.device, code.sub_device)
 
-        if self._lead_out[0] in (-TIMING * 200, -TIMING * 28):
-            if code.function != 0xFE or checksum != 0xFF:
-                self._last_code = None
-                raise DecodeError('Invalid repeat lead out')
-
-        if self._lead_out[0] == -TIMING * 200:
-            if self._last_code is not None:
-                self._last_code.repeat_timer.stop()
-
-            self.reset()
-            raise RepeatLeadOut
-
         if self._lead_out[0] == -TIMING * 28:
-            self._lead_out = [-TIMING * 220]
+            if code.function != 0xFE or checksum != 0xFF:
+                raise DecodeError('Invalid lead in')
+
             raise RepeatLeadIn
 
-        if self._last_code is None:
-            self._last_code = code
+        if self._lead_out[0] == -TIMING * 200:
+            if code.function != 0xFE or checksum != 0xFF:
+                raise DecodeError('Invalid lead out')
 
-        elif not self._last_code.repeat_timer.is_running:
-            raise RepeatTimeoutExpired
+            if self._last_code is not None:
+                self._last_code.repeat_timer.stop()
+                self._last_code = None
 
-        if self._last_code != code:
-            raise DecodeError('Repeat code does not match last code')
+            raise RepeatLeadOut
 
-        # self._last_code.repeat_timer.start()
-        return self._last_code
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
 
-    def encode(self, device, sub_device, function):
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+            raise RepeatLeadOut
+
+        self._last_code = code
+        return code
+
+    def encode(self, device, sub_device, function, repeat_count=0):
         lead_out = self._lead_out
 
         c0 = 1
@@ -162,7 +167,11 @@ class NRC17(protocol_base.IrProtocolBase):
 
         self._lead_out = lead_out
 
-        return [prefix, code, suffix]
+        packet = [prefix]
+        packet += [code] * (repeat_count + 1)
+        packet += [suffix]
+
+        return packet
 
     def _test_decode(self):
         rlc_codes = [

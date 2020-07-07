@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadIn
 
 TIMING = 422
 
@@ -70,51 +70,154 @@ class F121(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
-        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        def _get_code(lead_out):
+            c = protocol_base.code_wrapper.CodeWrapper(
+                self.encoding,
+                self._lead_in[:],
+                lead_out,
+                [],
+                self._bursts[:],
+                self.tolerance,
+                data[:]
+            )
 
-        if (
-            code.device != code.d1 != code.d2 != code.d3 or
-            code.h != code.h1 != 1 != code.h2 != code.h3 or
-            code.function != code.f1 != code.f2 != code.f3
-        ):
-            raise DecodeError('Invalid checksum')
+            if c.num_bits > self.bit_count / 4:
+                raise DecodeError('To many bits')
+            elif c.num_bits < self.bit_count / 4:
+                raise DecodeError('Not enough bits')
 
-        return code
+            params = dict(frequency=self.frequency)
+            for name, start, stop in self._parameters[:3]:
+                params[name] = c.get_value(start, stop)
 
-    def encode(self, device, function):
+            c = protocol_base.IRCode(self, c.original_code, list(c), params)
+            if c.h != 1:
+                raise DecodeError('Invalid checksum')
+
+            return c
+
+        if not len(self._sequence):
+            try:
+                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+                if self._last_code is not None:
+                    if self._last_code == code:
+                        return self._last_code
+
+                    self._last_code.repeat_timer.stop()
+                    self._last_code = None
+
+                if (
+                    code.device != code.d1 != code.d2 != code.d3 or
+                    code.h != code.h1 != 1 != code.h2 != code.h3 or
+                    code.function != code.f1 != code.f2 != code.f3
+                ):
+                    raise DecodeError('Invalid checksum')
+
+                self._last_code = code
+                return code
+
+            except DecodeError:
+                self._sequence.append(_get_code([self._middle_timings[0]]))
+                raise RepeatLeadIn
+
+        if len(self._sequence) == 1:
+            try:
+                self._sequence.append(_get_code([self._middle_timings[1]]))
+                raise RepeatLeadIn
+            except DecodeError:
+                try:
+                    self._sequence.append(_get_code([]))
+                    from . import f120
+                    for code in self._sequence:
+                        try:
+                            code = f120.F120.decode(code.original_rlc, f120.F120.frequency)
+                            del self._sequence[:]
+                            return code
+                        except RepeatLeadIn:
+                            continue
+
+                except DecodeError:
+                    del self._sequence[:]
+                raise
+
+        if len(self._sequence) == 2:
+            try:
+                self._sequence.append(_get_code([self._middle_timings[2]]))
+                raise RepeatLeadIn
+            except DecodeError:
+                del self._sequence[:]
+                raise
+
+        if len(self._sequence) == 3:
+            try:
+                code = _get_code([])
+
+                for cde in self._sequence:
+                    if cde.device != code.device or cde.function != code.function:
+                        del self._sequence[:]
+                        raise DecodeError('invalid frame')
+
+                del self._sequence[:]
+
+                if self._last_code is not None:
+                    if self._last_code == code:
+                        return self._last_code
+
+                    self._last_code.repeat_timer.stop()
+
+                self._last_code = code
+                return code
+
+            except DecodeError:
+                del self._sequence[:]
+                raise
+
+    def encode(self, device, function, repeat_count=0):
         h = 1
 
-        packet = self._build_packet(
+        packet1 = self._build_packet(
             list(self._get_timing(device, i) for i in range(3)),
             list(self._get_timing(h, i) for i in range(1)),
-            list(self._get_timing(function, i) for i in range(8)),
-            [self._middle_timings[0]],
-            list(self._get_timing(device, i) for i in range(3)),
-            list(self._get_timing(h, i) for i in range(1)),
-            list(self._get_timing(function, i) for i in range(8)),
-            [self._middle_timings[1]],
-            list(self._get_timing(device, i) for i in range(3)),
-            list(self._get_timing(h, i) for i in range(1)),
-            list(self._get_timing(function, i) for i in range(8)),
-            [self._middle_timings[2]],
-            list(self._get_timing(device, i) for i in range(3)),
-            list(self._get_timing(h, i) for i in range(1)),
-            list(self._get_timing(function, i) for i in range(8)),
+            list(self._get_timing(function, i) for i in range(8))
         )
 
-        return [packet]
+        packet2 = packet1[:]
+        packet3 = packet1[:]
+        packet4 = packet1[:]
+
+        packet1[-1] += self._middle_timings[0]
+        packet2[-1] += self._middle_timings[1]
+        packet3[-1] += self._middle_timings[2]
+
+        return [packet1, packet2, packet3, packet4] * (repeat_count + 1)
 
     def _test_decode(self):
-        rlc = [[
-            422, -1266, 1266, -422, 1266, -422, 1266, -422, 1266, -422, 422, -1266, 1266, -422, 422, -1266,
-            422, -1266, 422, -1266, 1266, -422, 422, -15614, 422, -1266, 1266, -422, 1266, -422, 1266, -422,
-            1266, -422, 422, -1266, 1266, -422, 422, -1266, 422, -1266, 422, -1266, 1266, -422, 422, -38402,
-            422, -1266, 1266, -422, 1266, -422, 1266, -422, 1266, -422, 422, -1266, 1266, -422, 422, -1266,
-            422, -1266, 422, -1266, 1266, -422, 422, -15614, 422, -1266, 1266, -422, 1266, -422, 1266, -422,
-            1266, -422, 422, -1266, 1266, -422, 422, -1266, 422, -1266, 422, -1266, 1266, -422, 422, -1266
-        ]]
+        rlc = [
+            [
+                422, -1266, 1266, -422, 1266, -422, 1266, -422, 1266, -422, 422, -1266, 1266, -422, 422, -1266,
+                422, -1266, 422, -1266, 1266, -422, 422, -15614
+            ],
+            [
+                422, -1266, 1266, -422, 1266, -422, 1266, -422, 1266, -422, 422, -1266, 1266, -422, 422, -1266, 422,
+                -1266, 422, -1266, 1266, -422, 422, -38402
+            ],
+            [
+                422, -1266, 1266, -422, 1266, -422, 1266, -422, 1266, -422, 422, -1266, 1266, -422, 422, -1266,
+                422, -1266, 422, -1266, 1266, -422, 422, -15614
+            ],
+            [
+                422, -1266, 1266, -422, 1266, -422, 1266, -422, 1266, -422, 422, -1266, 1266, -422, 422, -1266, 422,
+                -1266, 422, -1266, 1266, -422, 422, -1266
+            ]
+        ]
 
-        params = [dict(device=6, function=69)]
+        params = [
+            None,
+            None,
+            None,
+            dict(device=6, function=69)
+        ]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 

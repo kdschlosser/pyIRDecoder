@@ -43,12 +43,7 @@ class DirecTV(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING * 10, -TIMING * 2]
     _lead_out = [TIMING, -30000, TIMING * 5, -TIMING * 2]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 2], [TIMING * 2, -TIMING], [TIMING * 2, -TIMING * 2]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 3],
@@ -61,23 +56,18 @@ class DirecTV(protocol_base.IrProtocolBase):
         ['function', 0, 255]
     ]
 
-    _param = 3
-
     def _calc_checksum(self, function):
         # {C=7*(F:2:6)+5*(F:2:4)+3*(F:2:2)+(F:2)}
         c = (
             7 * self._get_bits(function, 6, 7) +
             5 * self._get_bits(function, 4, 5) +
-            self._param * self._get_bits(function, 2, 3) +
+            3 * self._get_bits(function, 2, 3) +
             self._get_bits(function, 0, 1)
         )
 
         return self._get_bits(c, 0, 3)
 
     def decode(self, data, frequency=0):
-        if not self._match(frequency, self.frequency, self.frequency_tolerance):
-            raise DecodeError('Invalid frequency')
-
         cleaned_code = []
         original_code = data[:]
         code = data[:]

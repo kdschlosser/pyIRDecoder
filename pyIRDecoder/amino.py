@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadIn
 
 
 TIMING = 268
@@ -47,10 +47,6 @@ class Amino(protocol_base.IrProtocolBase):
     _lead_in = [TIMING * 7, -TIMING * 6, TIMING * 3]
     _lead_out = [-79000]
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 3],
@@ -82,15 +78,41 @@ class Amino(protocol_base.IrProtocolBase):
         checksum = self._calc_checksum(code.device, code.function, code.toggle, code.c3)
 
         if checksum != code.checksum or code.c0 != 1 or code.c1 != 1 or code.c2 != 0:
+            self._last_code = None
             raise DecodeError('Checksum failed')
+
+        if self._last_code is not None:
+            if (
+                self._last_code.device != code.device or
+                self._last_code.function != code.function
+            ):
+                if code.toggle != 1:
+                    self._last_code.repeat_timer.stop()
+                    self._last_code = None
+                    raise DecodeError('Invalid toggle')
+
+            elif code.toggle != 0:
+                self._last_code.repeat_timer.stop()
+                self._last_code = None
+                raise DecodeError('Invalid toggle bit')
+
+            elif self._last_code.toggle == 1:
+                self._last_code.repeat_timer.cancel()
+
+        if code.toggle == 1:
+            code._data['T'] = 0
+            self._last_code = code
+            raise RepeatLeadIn
 
         return code
 
-    def encode(self, device, function, toggle):
+    def encode(self, device, function, repeat_count=0):
         c0 = 1
         c1 = 1
         c2 = 0
         c3 = 15
+
+        toggle = 1
 
         checksum = self._calc_checksum(
             device,
@@ -99,7 +121,7 @@ class Amino(protocol_base.IrProtocolBase):
             c3
         )
 
-        packet = self._build_packet(
+        packet1 = self._build_packet(
             list(self._get_timing(device, i) for i in range(4)),
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(toggle, i) for i in range(1)),
@@ -110,7 +132,31 @@ class Amino(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(4))
         )
 
-        return [packet]
+        toggle = 0
+
+        checksum = self._calc_checksum(
+            device,
+            function,
+            toggle,
+            c3
+        )
+
+        packet2 = self._build_packet(
+            list(self._get_timing(device, i) for i in range(4)),
+            list(self._get_timing(c0, i) for i in range(1)),
+            list(self._get_timing(toggle, i) for i in range(1)),
+            list(self._get_timing(c1, i) for i in range(2)),
+            list(self._get_timing(c2, i) for i in range(8)),
+            list(self._get_timing(function, i) for i in range(8)),
+            list(self._get_timing(c3, i) for i in range(4)),
+            list(self._get_timing(checksum, i) for i in range(4))
+        )
+
+        packet = [packet1, packet2]
+
+        packet += [packet2] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

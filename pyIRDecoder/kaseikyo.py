@@ -54,8 +54,8 @@ class Kaseikyo(protocol_base.IrProtocolBase):
     _repeat_bursts = []
 
     _parameters = [
-        ['M', 0, 7],
-        ['N', 8, 15],
+        ['OEM1', 0, 7],
+        ['OEM2', 8, 15],
         ['X', 16, 19],
         ['D', 20, 23],
         ['S', 24, 31],
@@ -69,12 +69,12 @@ class Kaseikyo(protocol_base.IrProtocolBase):
         ['sub_device', 0, 255],
         ['function', 0, 255],
         ['extended_function', 0, 15],
-        ['mode', 0, 255],
-        ['n', 0, 255]
+        ['oem1', 0, 255],
+        ['oem2', 0, 255]
     ]
 
-    def _calc_checksum(self, mode, n, device, sub_device, function, extended_function):
-        x = ((mode ^ n) >> 4) ^ (mode ^ n)
+    def _calc_checksum(self, oem1, oem2, device, sub_device, function, extended_function):
+        x = ((oem1 ^ oem2) >> 4) ^ (oem1 ^ oem2)
         checksum = device ^ sub_device ^ function ^ (extended_function * 16)
         checksum = checksum >> 4 ^ checksum
 
@@ -82,9 +82,32 @@ class Kaseikyo(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
+        if code.oem1 == 3 and code.oem2 == 1:
+            raise DecodeError('JVC48 protocol')
+        if code.oem1 == 35 and code.oem2 == 203:
+            raise DecodeError('MitsubishiK protocol')
+        if code.oem1 == 2 and code.oem2 == 32:
+            raise DecodeError('Panasonic protocol')
+        if code.oem1 == 170 and code.oem2 == 90:
+            raise DecodeError('SharpDVD protocol')
+        if code.oem1 == 67 and code.oem2 == 83:
+            raise DecodeError('TeacK protocol')
+        if code.oem1 == 84 and code.oem2 == 50:
+            raise DecodeError('DenonK protocol')
+        if code.oem1 == 20 and code.oem2 == 99:
+            raise DecodeError('Fijitsu protocol')
+
         x, checksum = self._calc_checksum(
-            code.mode,
-            code.n,
+            code.oem1,
+            code.oem2,
             code.device,
             code.sub_device,
             code.function,
@@ -94,16 +117,17 @@ class Kaseikyo(protocol_base.IrProtocolBase):
         if x != code.x or checksum != code.checksum:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, mode, n, device, sub_device, function, extended_function):
+    def encode(self, oem1, oem2, device, sub_device, function, extended_function, repeat_count=0):
         x, checksum = self._calc_checksum(
-            mode, n, device, sub_device, function, extended_function
+            oem1, oem2, device, sub_device, function, extended_function
         )
 
         packet = self._build_packet(
-            list(self._get_timing(mode, i) for i in range(8)),
-            list(self._get_timing(n, i) for i in range(8)),
+            list(self._get_timing(oem1, i) for i in range(8)),
+            list(self._get_timing(oem2, i) for i in range(8)),
             list(self._get_timing(x, i) for i in range(4)),
             list(self._get_timing(device, i) for i in range(4)),
             list(self._get_timing(sub_device, i) for i in range(8)),
@@ -112,7 +136,7 @@ class Kaseikyo(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(4))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[
@@ -124,12 +148,12 @@ class Kaseikyo(protocol_base.IrProtocolBase):
             432, -1296, 432, -1296, 432, -1296, 432, -432, 432, -432, 432, -1296, 432, -1296, 432, -74736
         ]]
 
-        params = [dict(device=5, extended_function=14, function=192, mode=217, n=244, sub_device=131)]
+        params = [dict(device=5, extended_function=14, function=192, oem1=217, oem2=244, sub_device=131)]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
-        params = dict(device=5, extended_function=14, function=192, mode=217, n=244, sub_device=131)
+        params = dict(device=5, extended_function=14, function=192, oem1=217, oem2=244, sub_device=131)
         protocol_base.IrProtocolBase._test_encode(self, params)
 
 

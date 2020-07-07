@@ -42,12 +42,7 @@ class Barco(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING, -TIMING * 25]
     _lead_out = [TIMING, -TIMING * 25, TIMING, -120000]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING * 5], [TIMING, -TIMING * 15]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 4],
@@ -59,13 +54,13 @@ class Barco(protocol_base.IrProtocolBase):
         ['function', 0, 63],
     ]
 
-    def encode(self, device, function, ):
+    def encode(self, device, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(5)),
             list(self._get_timing(function, i) for i in range(6)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

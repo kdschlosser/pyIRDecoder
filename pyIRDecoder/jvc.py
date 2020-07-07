@@ -59,13 +59,31 @@ class JVC(protocol_base.IrProtocolBase):
         ['function', 0, 255]
     ]
 
-    def encode(self, device, function):
-        packet = self._build_packet(
+    def encode(self, device, function, repeat_count=0):
+        lead_in = self._lead_in[:]
+        lead_out = self._lead_out[:]
+
+        packet = [
+            self._build_packet(
+                list(self._get_timing(device, i) for i in range(8)),
+                list(self._get_timing(function, i) for i in range(8))
+            )
+        ]
+
+        del self._lead_in[:]
+        self._lead_out = self._repeat_lead_out[:]
+
+        repeat = self._build_packet(
             list(self._get_timing(device, i) for i in range(8)),
             list(self._get_timing(function, i) for i in range(8))
         )
 
-        return [packet]
+        self._lead_in = lead_in[:]
+        self._lead_out = lead_out[:]
+
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

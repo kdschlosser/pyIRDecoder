@@ -46,10 +46,6 @@ class Audiovox(protocol_base.IrProtocolBase):
     _middle_timings = [(TIMING, -TIMING * 8)]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
-
     _parameters = [
         ['D', 0, 7],
         ['F', 8, 15],
@@ -60,14 +56,14 @@ class Audiovox(protocol_base.IrProtocolBase):
         ['function', 0, 255],
     ]
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(8)),
             self._middle_timings,
             list(self._get_timing(function, i) for i in range(8)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

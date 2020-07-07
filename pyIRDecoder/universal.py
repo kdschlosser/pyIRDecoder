@@ -272,7 +272,11 @@ class Universal(protocol_base.IrProtocolBase):
             code = self.__decode_2(norm_data[:])
 
         params = {'CODE': code, 'frequency': frequency}
+        tt = sum(abs(item) for item in data)
+
+        self.repeat_timeout = tt + 10
         code = protocol_base.IRCode(self, data, norm_data, params)
+        self.repeat_timeout = 0
 
         return code
 

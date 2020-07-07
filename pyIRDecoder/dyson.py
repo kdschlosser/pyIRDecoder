@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadIn
 
 
 TIMING = 780
@@ -66,49 +66,132 @@ class Dyson(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
-        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        try:
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+            if isinstance(self._last_code, protocol_base.IRCode):
+                if self._last_code == code:
+                    if self._last_code._code.get_bits(0, 0) != 1:
+                        self._last_code.repeat_timer.start()
+                        raise RepeatLeadIn
 
-        if code.device != code.d2 or code.function != code.f2:
-            raise DecodeError('Checksum failed')
+                    return self._last_code
+                else:
+                    self._last_code.repeat_timer.stop()
 
-        params = dict(
-            D=code.device,
-            F=code.function,
-            T=self._reverse_bits(code.toggle, 2),
-            frequency=self.frequency
-        )
+            if code.device != code.d2 or code.function != code.f2:
+                self._last_code = None
+                raise DecodeError('Checksum failed')
 
-        return protocol_base.IRCode(
-            self,
-            code.original_rlc,
-            code.normalized_rlc,
-            params
-        )
+            params = dict(
+                D=code.device,
+                F=code.function,
+                T=self._reverse_bits(code.toggle, 2),
+                frequency=self.frequency
+            )
 
-    def encode(self, device, function, toggle):
+            code = protocol_base.IRCode(
+                self,
+                code.original_rlc,
+                code.normalized_rlc,
+                params
+            )
+
+            self._last_code = code
+            return code
+
+        except DecodeError:
+            if isinstance(self._last_code, dict):
+                try:
+                    code = protocol_base.code_wrapper.CodeWrapper(
+                        self.encoding,
+                        self._lead_in[:],
+                        self._lead_out[:],
+                        [],
+                        self._bursts[:],
+                        self.tolerance,
+                        data[:]
+                    )
+                except DecodeError:
+                    self._last_code = None
+                    raise
+
+                params = dict(
+                    frequency=self.frequency
+                )
+
+                for key, start, stop in self._parameters[:3]:
+                    params[key] = code.get_value(start, stop)
+
+                if self._last_code == params:
+                    params['T'] = self._reverse_bits(params['T'], 2)
+                    code = protocol_base.IRCode(
+                        self,
+                        code.original_code,
+                        list(code),
+                        params
+                    )
+                    self._last_code = code
+                    return code
+                else:
+                    self._last_code = None
+                    raise DecodeError('Invalid frame')
+
+            code = protocol_base.code_wrapper.CodeWrapper(
+                self.encoding,
+                self._lead_in[:],
+                list(self._middle_timings[0]),
+                [],
+                self._bursts[:],
+                self.tolerance,
+                data[:]
+            )
+
+            params = dict(
+                frequency=self.frequency
+            )
+
+            for key, start, stop in self._parameters[:3]:
+                params[key] = code.get_value(start, stop)
+
+            self._last_code = params
+            raise RepeatLeadIn
+
+    def encode(self, device, function, toggle, repeat_count=0):
         toggle = self._reverse_bits(toggle, 2)
 
-        packet = self._build_packet(
-            list(self._get_timing(device, i) for i in range(7)),
-            list(self._get_timing(function, i) for i in range(6)),
-            list(self._get_timing(toggle, i) for i in range(2)),
-            self._middle_timings,
-            list(self._get_timing(device, i) for i in range(7)),
-            list(self._get_timing(function, i) for i in range(6)),
-            list(self._get_timing(toggle, i) for i in range(2)),
-        )
+        packet = [
+            self._build_packet(
+                list(self._get_timing(device, i) for i in range(7)),
+                list(self._get_timing(function, i) for i in range(6)),
+                list(self._get_timing(toggle, i) for i in range(2)),
+                self._middle_timings,
+                list(self._get_timing(device, i) for i in range(7)),
+                list(self._get_timing(function, i) for i in range(6)),
+                list(self._get_timing(toggle, i) for i in range(2)),
+            )
+        ]
 
-        return [packet]
+        repeat = self._repeat_lead_in[:] + self._repeat_bursts[1] + self._repeat_lead_out
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
-        rlc = [[
-            2340, -780, 780, -780, 780, -780, 780, -780, 780, -780, 780, -1560, 780, -1560, 780, -1560, 780, -1560,
-            780, -780, 780, -1560, 780, -1560, 780, -1560, 780, -780, 780, -1560, 780, -1560, 780, -100000,
-            2340, -780, 780, -780, 780, -780, 780, -780, 780, -780, 780, -1560, 780, -1560, 780, -1560, 780, -1560,
-            780, -780, 780, -1560, 780, -1560, 780, -1560, 780, -780, 780, -1560, 780, -1560, 780, -60000
-        ]]
+        rlc = [
+            [
+                2340, -780, 780, -780, 780, -780, 780, -780, 780, -780, 780, -1560, 780, -1560, 780, -1560, 780, -1560,
+                780, -780, 780, -1560, 780, -1560, 780, -1560, 780, -780, 780, -1560, 780, -1560, 780, -100000
+            ],
+            [
+                2340, -780, 780, -780, 780, -780, 780, -780, 780, -780, 780, -1560, 780, -1560, 780, -1560, 780, -1560,
+                780, -780, 780, -1560, 780, -1560, 780, -1560, 780, -780, 780, -1560, 780, -1560, 780, -60000
+            ]
+        ]
 
-        params = [dict(function=29, toggle=3, device=112)]
+        params = [
+            None,
+            dict(function=29, toggle=3, device=112)
+        ]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 

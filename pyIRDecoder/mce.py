@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadOut
 
 MCE_COMMANDS = {
     0x00: "Number.0",
@@ -123,7 +123,6 @@ class MCE(protocol_base.IrProtocolBase):
     # [D:0..127,S:0..255,F:0..255,T@:0..1=0]
     encode_parameters = [
         ['function', 0, 0x5E],
-        ['toggle', 0, 1]
     ]
 
     @property
@@ -132,6 +131,19 @@ class MCE(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                self._last_code.toggle == code.toggle
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            if self._last_code == code:
+                self._last_code = None
+                raise RepeatLeadOut
+
+            self._last_code = None
 
         if code.c0 != 1 or code.mode != 6 or code.oem1 != OEM1 or code.oem2 != OEM2 or code.device != MCE_DEVICE:
             raise DecodeError('Checksum failed')
@@ -141,14 +153,17 @@ class MCE(protocol_base.IrProtocolBase):
 
         code.name = self.__class__.__name__ + '.' + MCE_COMMANDS[code.function]
 
+        self._last_code = code
         return code
 
-    def encode(self, function, toggle):
+    def encode(self, function, repeat_count):
         c0 = 1
         mode = 6
         oem1 = OEM1
         oem2 = OEM2
         device = MCE_DEVICE
+        toggle = 1
+
         packet = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(mode, i) for i in range(3)),
@@ -160,7 +175,23 @@ class MCE(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(8)),
         )
 
-        return [packet]
+        toggle = 0
+
+        lead_out = self._build_packet(
+            list(self._get_timing(c0, i) for i in range(1)),
+            list(self._get_timing(mode, i) for i in range(3)),
+            self._middle_timings[0],
+            list(self._get_timing(oem1, i) for i in range(8)),
+            list(self._get_timing(oem2, i) for i in range(8)),
+            list(self._get_timing(toggle, i) for i in range(1)),
+            list(self._get_timing(device, i) for i in range(7)),
+            list(self._get_timing(function, i) for i in range(8)),
+        )
+
+        packet = [packet] * (repeat_count + 1)
+        packet += [lead_out]
+
+        return packet
 
     def _test_decode(self):
 
@@ -183,11 +214,3 @@ class MCE(protocol_base.IrProtocolBase):
 
 
 MCE = MCE()
-
-blah = [2664, -888, 444, -444, 444, -444, 444, -888, 444, -888, 1332, -888, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 888, -444, 444, -444, 444, -444, 444, -444, 444, -888, 444, -444, 444, -444, 444, -444, 888, -888, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -69704]
-blah = [2664, -888, 444, -444, 444, -444, 444, -888, 444, -888, 1332, -888, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 888, -444, 444, -444, 444, -444, 444, -444, 444, -888, 444, -444, 444, -444, 444, -444, 888, -888, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -69704]
-
-
-
-
-

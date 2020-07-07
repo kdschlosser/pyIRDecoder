@@ -49,8 +49,7 @@ class Apple(protocol_base.IrProtocolBase):
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
     _repeat_lead_in = [TIMING * 16, -TIMING * 4]
-    _repeat_lead_out = [TIMING, 108000]
-    _repeat_bursts = []
+    _repeat_lead_out = [TIMING, -96156]
 
     _parameters = [
         ['D', 0, 7],
@@ -72,6 +71,10 @@ class Apple(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None and self._last_code == code:
+            return self.__last_code
+
         checksum = self._calc_checksum(code.function, code.pair_id)
 
         if code.sub_device != 135 or checksum != code.checksum:
@@ -79,19 +82,23 @@ class Apple(protocol_base.IrProtocolBase):
 
         return code
 
-    def encode(self, device, function, pair_id):
+    def encode(self, device, function, pair_id, repeat_count=0):
         sub_device = 135
         checksum = self._calc_checksum(function, pair_id)
 
-        packet = self._build_packet(
-            list(self._get_timing(device, i) for i in range(8)),
-            list(self._get_timing(sub_device, i) for i in range(8)),
-            list(self._get_timing(checksum, i) for i in range(1)),
-            list(self._get_timing(function, i) for i in range(7)),
-            list(self._get_timing(pair_id, i) for i in range(8))
-        )
+        packet = [
+            self._build_packet(
+                list(self._get_timing(device, i) for i in range(8)),
+                list(self._get_timing(sub_device, i) for i in range(8)),
+                list(self._get_timing(checksum, i) for i in range(1)),
+                list(self._get_timing(function, i) for i in range(7)),
+                list(self._get_timing(pair_id, i) for i in range(8))
+            )
+        ]
 
-        return [packet]
+        packet += self._build_repeat_packet(repeat_count)
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

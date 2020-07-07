@@ -40,14 +40,8 @@ class Bryston(protocol_base.IrProtocolBase):
     bit_count = 18
     encoding = 'lsb'
 
-    _lead_in = []
     _lead_out = [-18000]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING * 6], [TIMING * 6, -TIMING]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 9],
@@ -59,14 +53,13 @@ class Bryston(protocol_base.IrProtocolBase):
         ['function', 0, 255],
     ]
 
-    def encode(self, device, function):
-
+    def encode(self, device, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(10)),
             list(self._get_timing(function, i) for i in range(8))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

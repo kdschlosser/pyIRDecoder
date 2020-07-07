@@ -68,13 +68,20 @@ class GwtS(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
 
         if code.c0 != 0 or code.c1 != 1 or code.c2 != 1 or code.c3 != 1:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, function, crc):
+    def encode(self, device, function, crc, repeat_count=0):
         c0 = 0
         c1 = 1
         c2 = 1
@@ -89,7 +96,7 @@ class GwtS(protocol_base.IrProtocolBase):
             list(self._get_timing(crc, i) for i in range(8)),
             list(self._get_timing(c3, i) for i in range(1)),
         )
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[+417, -2085, +834, -834, +1251, -417, +2085, -417, +417, -417, +2085, -1251]]

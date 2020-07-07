@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadOut
 
 
 TIMING = 1000.0 / 36.0
@@ -36,7 +36,7 @@ class Nokia32(protocol_base.IrProtocolBase):
     """
     IR decoder for the Nokia32 protocol.
     """
-    irp = '{36k,1p,msb}<6,-10|6,-16|6,-22|6,-28>((15,-10,D:8,S:8,T:1,X:7,F:8,6,^100m)*'
+    irp = '{36k,1p,msb}<6,-10|6,-16|6,-22|6,-28>((15,-10,D:8,S:8,T:1,X:7,F:8,6,^100m)*,T=1-T)'
     frequency = 36000
     bit_count = 32
     encoding = 'msb'
@@ -67,7 +67,6 @@ class Nokia32(protocol_base.IrProtocolBase):
         ['device', 0, 255],
         ['sub_device', 0, 255],
         ['function', 0, 255],
-        ['toggle', 0, 1],
         ['x', 0, 127],
     ]
 
@@ -83,8 +82,8 @@ class Nokia32(protocol_base.IrProtocolBase):
         code = code[2:]
 
         if (
-                self._match(mark, self._lead_in[0]) and
-                self._match(space, self._lead_in[1])
+            self._match(mark, self._lead_in[0]) and
+            self._match(space, self._lead_in[1])
         ):
             cleaned_code += self._lead_in[:]
 
@@ -148,21 +147,33 @@ class Nokia32(protocol_base.IrProtocolBase):
 
         for pulse in cleaned_code:
             if (
-                    len(normalized_code) and
-                    (normalized_code[-1] < 0 > pulse or normalized_code[-1] > 0 < pulse)
+                len(normalized_code) and
+                (normalized_code[-1] < 0 > pulse or normalized_code[-1] > 0 < pulse)
             ):
                 normalized_code[-1] += pulse
                 continue
 
             normalized_code += [pulse]
 
-        return protocol_base.IRCode(self, original_code, normalized_code, params)
+        code = protocol_base.IRCode(self, original_code, normalized_code, params)
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                self._last_code.toggle == code.toggle
+            ):
+                return self._last_code
 
-    def _get_timing(self, num, index):
-        value = self._get_bits(num, index, index + 1)
-        return self._bursts[value]
+            self._last_code.repeat_timer.stop()
+            if self._last_code == code:
+                self._last_code = None
+                raise RepeatLeadOut
 
-    def encode(self, device, sub_device, function, toggle, x):
+        self._last_code = code
+        return code
+
+    def encode(self, device, sub_device, function, x, repeat_count=0):
+        toggle = 0
+
         x = self._set_bit(x, 7, self._get_bit(toggle, 0))
 
         packet = self._build_packet(
@@ -172,7 +183,20 @@ class Nokia32(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(0, 8, 2))
         )
 
-        return [packet]
+        toggle = 1
+        x = self._set_bit(x, 7, self._get_bit(toggle, 0))
+
+        lead_out = self._build_packet(
+            list(self._get_timing(device, i) for i in range(0, 8, 2)),
+            list(self._get_timing(sub_device, i) for i in range(0, 8, 2)),
+            list(self._get_timing(x, i) for i in range(0, 8, 2)),
+            list(self._get_timing(function, i) for i in range(0, 8, 2))
+        )
+
+        packet = [packet] * (repeat_count + 1)
+        packet += [lead_out]
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

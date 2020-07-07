@@ -63,13 +63,20 @@ class Motorola(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
 
         if code.c0 != 1:
             raise DecodeError('Invalid checksum')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         c0 = 1
         packet = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
@@ -77,7 +84,7 @@ class Motorola(protocol_base.IrProtocolBase):
             list(self._get_timing(device, i) for i in range(2)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [

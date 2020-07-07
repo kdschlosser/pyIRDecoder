@@ -68,7 +68,7 @@ class IODATAn(protocol_base.IrProtocolBase):
         ['y', 0, 127]
     ]
 
-    def encode(self, device, sub_device, function, extended_function, x, y):
+    def encode(self, device, sub_device, function, extended_function, x, y, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(x, i) for i in range(7)),
             list(self._get_timing(device, i) for i in range(7)),

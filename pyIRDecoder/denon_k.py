@@ -32,15 +32,6 @@ from . import DecodeError
 TIMING = 432
 
 
-# 432, -1296, 1
-# 432, -432, 0
-# 432, -1296,1
-# 432, -432, 0
-# 432, -432, 0
-# 432, -1296, 1
-# 432, -432, 0
-# 432, -432 0
-
 class DenonK(protocol_base.IrProtocolBase):
     """
     IR decoder for the DenonK protocol.
@@ -52,12 +43,7 @@ class DenonK(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING * 8, -TIMING * 4]
     _lead_out = [TIMING, -TIMING * 173]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['C0', 0, 7],
@@ -89,12 +75,20 @@ class DenonK(protocol_base.IrProtocolBase):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         checksum = self._calc_checksum(code.device, code.sub_device, code.function)
 
+        if self._last_code is not None:
+            if code == self._last_code:
+                return self._last_code
+
+            self._last_code.stop()
+            self._last_code = None
+
         if code.c0 != 84 or code.c1 != 50 or code.c2 != 0:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count):
         c0 = 84
         c1 = 50
         c2 = 0
@@ -110,7 +104,7 @@ class DenonK(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(8))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

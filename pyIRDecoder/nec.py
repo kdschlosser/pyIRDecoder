@@ -69,27 +69,22 @@ class NEC(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         func_checksum = self._calc_checksum(code.function)
 
         if func_checksum != code.f_checksum:
             raise DecodeError('Checksum failed')
 
-        params = dict(
-            D=code.device,
-            S=code.sub_device,
-            F=code.function,
-            F_CHECKSUM=code.f_checksum,
-            frequency=self.frequency
-        )
+        self._last_code = code
+        return code
 
-        return protocol_base.IRCode(
-            self,
-            code.original_rlc,
-            code.normalized_rlc,
-            params
-        )
-
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
         func_checksum = self._calc_checksum(function)
 
         packet = self._build_packet(
@@ -98,8 +93,7 @@ class NEC(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(8)),
             list(self._get_timing(func_checksum, i) for i in range(8)),
         )
-
-        return [packet]
+        return [packet] + self._build_repeat_packet(repeat_count)
 
     def _test_decode(self):
         rlc = [[

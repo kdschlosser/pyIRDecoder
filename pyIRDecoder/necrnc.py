@@ -74,14 +74,22 @@ class NECrnc(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         f1_checksum, f2_checksum = self._calc_checksum(code.function)
 
         if f1_checksum != code.f1_checksum or f2_checksum != code.f2_checksum:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
         f1_checksum, f2_checksum = self._calc_checksum(
             function
         )
@@ -94,7 +102,7 @@ class NECrnc(protocol_base.IrProtocolBase):
             list(self._get_timing(f1_checksum, i) for i in range(4)),
         )
 
-        return [packet]
+        return [packet] + self._build_repeat_packet(repeat_count)
 
     def _test_decode(self):
         rlc = [[

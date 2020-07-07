@@ -61,13 +61,21 @@ class Elunevision(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
+            self._last_code = None
 
         if code.device != 0xF48080:
             raise DecodeError('Incorrect device')
 
+        self._last_code = code
         return code
 
-    def encode(self, function):
+    def encode(self, function, repeat_count=0):
         device = 0xF48080
 
         packet = self._build_packet(
@@ -75,7 +83,7 @@ class Elunevision(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(8)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

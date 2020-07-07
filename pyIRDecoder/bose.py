@@ -43,12 +43,7 @@ class Bose(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING * 2, -TIMING * 3]
     _lead_out = [TIMING, -50000]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['F', 0, 7],
@@ -65,21 +60,28 @@ class Bose(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
         func_checksum = self._calc_checksum(code.function)
 
         if func_checksum != code.f_checksum:
+            if self._last_code is not None:
+                self._last_code.repeat_timer.start()
+
             raise DecodeError('Checksum failed')
+
+        if self._last_code is None:
+            self._last_code = code
 
         return code
 
-    def encode(self, function):
+    def encode(self, function, repeat_count=0):
         func_checksum = self._calc_checksum(function)
         packet = self._build_packet(
             list(self._get_timing(function, i) for i in range(8)),
             list(self._get_timing(func_checksum, i) for i in range(8)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

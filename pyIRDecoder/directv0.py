@@ -42,12 +42,7 @@ class DirecTV0(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING * 10, -TIMING * 2]
     _lead_out = [TIMING, -TIMING * 15]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 2], [TIMING * 2, -TIMING], [TIMING * 2, -TIMING * 2]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 3],
@@ -72,13 +67,10 @@ class DirecTV0(protocol_base.IrProtocolBase):
         return self._get_bits(c, 0, 3)
 
     def decode(self, data, frequency=0):
-        if not self._match(frequency, self.frequency, self.frequency_tolerance):
-            raise DecodeError('Invalid frequency')
-
-        if self._last_code is not None:
-            self._lead_in[0] = TIMING * 5
-        else:
+        if self._last_code is None:
             self._lead_in[0] = TIMING * 10
+        else:
+            self._lead_in[0] = TIMING * 5
 
         cleaned_code = []
         original_code = data[:]
@@ -183,7 +175,7 @@ class DirecTV0(protocol_base.IrProtocolBase):
 
         return last
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         checksum = self._calc_checksum(function)
         lead_in = self._lead_in[0]
 
@@ -205,7 +197,7 @@ class DirecTV0(protocol_base.IrProtocolBase):
 
         self._lead_in[0] = lead_in
 
-        return [packet1, packet2]
+        return [packet1, packet2] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [

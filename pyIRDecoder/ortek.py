@@ -46,9 +46,9 @@ class Ortek(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = [TIMING * 16, -TIMING * 4]
+    _repeat_lead_in = [TIMING * 16, -TIMING * 4, 1, -TIMING * 3]
     _repeat_lead_out = [TIMING, 108000]
-    _repeat_bursts = [[TIMING, -TIMING * 3]]
+    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 7],
@@ -73,14 +73,23 @@ class Ortek(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         checksum1, checksum2 = self._calc_checksum(code.function)
 
         if checksum1 != code.checksum1 or checksum2 != code.checksum2:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
         checksum1, checksum2 = self._calc_checksum(function)
 
         packet = self._build_packet(
@@ -91,7 +100,7 @@ class Ortek(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum2, i) for i in range(4))
         )
 
-        return [packet]
+        return [packet] + self._build_repeat_packet(repeat_count)
 
     def _test_decode(self):
         rlc = [[

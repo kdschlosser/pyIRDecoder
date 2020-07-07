@@ -58,11 +58,11 @@ class Jerrold(protocol_base.IrProtocolBase):
         ['function', 0, 31],
     ]
 
-    def encode(self, function):
+    def encode(self, function, repeat_count=0):
         packet = self._build_packet(
             self._get_timing(function, i) for i in range(5)
         )
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[44, -11500, 44, -7500, 44, -7500, 44, -11500, 44, -11500, 44, -23500]]

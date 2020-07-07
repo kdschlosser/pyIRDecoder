@@ -152,20 +152,24 @@ class Nokia(protocol_base.IrProtocolBase):
 
             normalized_code += [pulse]
 
-        return protocol_base.IRCode(self, original_code, normalized_code, params)
+        code = protocol_base.IRCode(self, original_code, normalized_code, params)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
 
-    def _get_timing(self, num, index):
-        value = self._get_bits(num, index, index + 1)
-        return self._bursts[value]
+            self._last_code.repeat_timer.stop()
 
-    def encode(self, device, sub_device, function):
+        self._last_code = code
+        return code
+
+    def encode(self, device, sub_device, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(0, 8, 2)),
             list(self._get_timing(sub_device, i) for i in range(0, 8, 2)),
             list(self._get_timing(function, i) for i in range(0, 8, 2))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

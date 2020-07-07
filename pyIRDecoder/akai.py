@@ -40,13 +40,8 @@ class Akai(protocol_base.IrProtocolBase):
     bit_count = 10
     encoding = 'lsb'
 
-    _lead_in = []
     _lead_out = [TIMING, 25300]
     _bursts = [[TIMING, -int(round(TIMING * 2.6))], [TIMING, -int(round(TIMING * 6.3))]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 2],
@@ -58,13 +53,13 @@ class Akai(protocol_base.IrProtocolBase):
         ['function', 0, 127],
     ]
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(3)),
             list(self._get_timing(function, i) for i in range(7))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

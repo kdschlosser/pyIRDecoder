@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadIn
 
 TIMING = 422
 
@@ -64,42 +64,128 @@ class F120(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
-        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        try:
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+            if self._last_code is not None:
+                if self._last_code == code:
+                    return self._last_code
 
-        if (
-            code.device != code.d1 or
-            code.h != 0 != code.h1 or
-            code.function != code.f1
-        ):
-            raise DecodeError('Invalid checksum')
+                self._last_code.repeat_timer.stop()
+                self._last_code = None
 
-        return code
+            if (
+                code.device != code.d1 or
+                code.h != 0 != code.h1 or
+                code.function != code.f1
+            ):
+                raise DecodeError('Invalid checksum')
 
-    def encode(self, device, function):
+            self._last_code = code
+
+            return code
+
+        except DecodeError:
+            if self._sequence:
+                try:
+                    code = protocol_base.code_wrapper.CodeWrapper(
+                        self.encoding,
+                        self._lead_in[:],
+                        self._lead_out[:],
+                        [],
+                        self._bursts[:],
+                        self.tolerance,
+                        data[:]
+                    )
+
+                    if code.num_bits > self.bit_count / 2:
+                        raise DecodeError('To many bits')
+                    elif code.num_bits < self.bit_count / 2:
+                        raise DecodeError('Not enough bits')
+
+                except DecodeError:
+                    del self._sequence[:]
+                    raise
+
+                params = dict(frequency=self.frequency)
+                for name, start, stop in self._parameters[:3]:
+                    params[name] = code.get_value(start, stop)
+
+                if params == self._sequence[0]:
+                    del self._sequence[0]['frequency']
+                    for k, v in self._sequence[0].items():
+                        params[k + '1'] = v
+                else:
+                    del self._sequence[:]
+                    raise DecodeError('invalid frame')
+
+                del self._sequence[:]
+
+                code = protocol_base.IRCode(self, code.original_code, list(code), params)
+
+                if self._last_code is not None:
+                    if self._last_code == code:
+                        return self._last_code
+
+                    self._last_code.repeat_timer.stop()
+
+                self._last_code = code
+                return code
+            else:
+                code = protocol_base.code_wrapper.CodeWrapper(
+                    self.encoding,
+                    self._lead_in[:],
+                    self._lead_out[:],
+                    [],
+                    self._bursts[:],
+                    self.tolerance,
+                    data[:]
+                )
+
+                if code.num_bits > self.bit_count / 2:
+                    raise DecodeError('To many bits')
+                elif code.num_bits < self.bit_count / 2:
+                    raise DecodeError('Not enough bits')
+
+                params = dict(frequency=self.frequency)
+                for name, start, stop in self._parameters[:3]:
+                    params[name] = code.get_value(start, stop)
+
+                if params['H'] != 0:
+                    raise DecodeError('Invalid checksum')
+
+                self._sequence.append(params)
+                raise RepeatLeadIn
+
+    def encode(self, device, function, repeat_count=0):
         h = 0
 
-        packet = self._build_packet(
+        packet1 = self._build_packet(
             list(self._get_timing(device, i) for i in range(3)),
             list(self._get_timing(h, i) for i in range(1)),
             list(self._get_timing(function, i) for i in range(8)),
-            self._middle_timings,
-            list(self._get_timing(device, i) for i in range(3)),
-            list(self._get_timing(h, i) for i in range(1)),
-            list(self._get_timing(function, i) for i in range(8))
         )
+        packet2 = packet1[:]
 
-        return [packet]
+        packet1[-1] += self._middle_timings[0]
+
+        return [packet1, packet2] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [
             [
                 +1266, -422, +422, -1266, +1266, -422, +422, -1266, +422, -1266, +422, -1266, +422, -1266, +1266, -422,
-                +1266, -422, +1266, -422, +422, -1266, +422, -15614, +1266, -422, +422, -1266, +1266, -422, +422, -1266,
-                +422, -1266, +422, -1266, +422, -1266, +1266, -422, +1266, -422, +1266, -422, +422, -1266, +422, -1266
+                +1266, -422, +1266, -422, +422, -1266, +422, -15614
+            ],
+            [
+                +1266, -422, +422, -1266, +1266, -422, +422, -1266, +422, -1266, +422, -1266, +422, -1266, +1266, -422,
+                +1266, -422, +1266, -422, +422, -1266, +422, -1266
             ]
         ]
 
-        params = [dict(device=5, function=56)]
+        params = [
+            None,
+            dict(device=5, function=56)
+        ]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 

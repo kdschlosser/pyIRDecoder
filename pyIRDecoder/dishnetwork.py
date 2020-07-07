@@ -63,7 +63,16 @@ class DishNetwork(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
-        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        try:
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        except DecodeError:
+            if self._lead_in and self._last_code is None:
+                raise
+
+            self._lead_in = [TIMING, -TIMING * 15]
+
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
         function = self._reverse_bits(code.function, 6)
 
         params = dict(
@@ -73,22 +82,49 @@ class DishNetwork(protocol_base.IrProtocolBase):
             frequency=self.frequency
         )
 
-        return protocol_base.IRCode(
+        c = protocol_base.IRCode(
             self,
             code.original_rlc,
             code.normalized_rlc,
             params
         )
+        c._code = c
 
-    def encode(self, device, sub_device, function):
+        if self._last_code is None:
+            del self._lead_in[:]
+            self._last_code = c
+        elif self._last_code == c:
+            return self._last_code
+
+        else:
+            self._last_code.repeat_timer.stop()
+            self._last_code = c
+
+        return c
+
+    def encode(self, device, sub_device, function, repeat_count=0):
+        lead_in = self._lead_in[:]
         function = self._reverse_bits(function, 6)
+
+        self._lead_in = [TIMING, -TIMING * 15]
         packet = self._build_packet(
             list(self._get_timing(function, i) for i in range(6)),
             list(self._get_timing(sub_device, i) for i in range(5)),
             list(self._get_timing(device, i) for i in range(5)),
         )
+        del self._lead_in[:]
+        repeat = self._build_packet(
+            list(self._get_timing(function, i) for i in range(6)),
+            list(self._get_timing(sub_device, i) for i in range(5)),
+            list(self._get_timing(device, i) for i in range(5)),
+        )
 
-        return [packet]
+        self._lead_in = lead_in[:]
+
+        packet = [packet]
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

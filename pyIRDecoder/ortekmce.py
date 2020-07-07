@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadIn
 
 
 TIMING = 480
@@ -76,13 +76,36 @@ class OrtekMCE(protocol_base.IrProtocolBase):
         if checksum != code.checksum or code.p not in (0, 1, 2):
             raise DecodeError('Checksum failed')
 
+        if len(self._sequence) == 0:
+            if code.p != 0:
+                raise DecodeError('Invalid frame')
+            self._sequence.append(code)
+            raise RepeatLeadIn
+
+        if len(self._sequence) == 1:
+            if code.p != 1:
+                del self._sequence[:]
+                raise DecodeError('Invalid frame')
+
+            self._sequence.append(code)
+            raise RepeatLeadIn
+
+        if code.p != 2:
+            del self._sequence[:]
+            raise DecodeError('Invalid frame')
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+            self._last_code.repeat_timer.stop()
+
+        self._last_code = code
         return code
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         codes = []
         
         for p in range(3):
-            
             checksum = self._calc_checksum(
                 device,
                 function,
@@ -96,7 +119,7 @@ class OrtekMCE(protocol_base.IrProtocolBase):
             )
             codes += [packet]
 
-        return codes
+        return codes * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [

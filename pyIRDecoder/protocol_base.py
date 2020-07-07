@@ -26,384 +26,44 @@
 
 from __future__ import print_function
 import math
-import threading
-from . import pronto
-from . import utils
-from . import xml_handler
+import six
+
 from . import code_wrapper
+from . import xml_handler
 from . import (
     DecodeError,
     RepeatLeadIn,
     RepeatLeadOut
 )
 
+from .ir_code import IRCode
 
-class Timer(object):
-    def __init__(self, func, duration):
-        self.func = func
-        self.duration = duration
-        self.event = threading.Event()
-        self.thread = None
 
-    def cancel(self):
-        if self.thread is not None:
-            self.event.set()
-            self.thread.join()
+class ProtocolBaseMeta(type):
+    _classes = []
 
-    def stop(self):
-        if self.thread is not None:
-            self.event.set()
-            self.thread.join()
+    def __init__(cls, name, bases, dct):
+        super(ProtocolBaseMeta, cls).__init__(name, bases, dct)
 
-        self.func()
+        if cls not in ProtocolBaseMeta._classes:
+            ProtocolBaseMeta._classes += [cls]
 
-    def start(self):
-        self.cancel()
-        self.thread = threading.Thread(target=self.run)
-        self.thread.daemon = True
-        self.thread.start()
+    def __call__(cls, xml=None):
+        if xml is not None and cls == IrProtocolBase:
+            for protocol in ProtocolBaseMeta._classes:
+                if protocol.__name__ == xml.name:
+                    return protocol(xml)
 
-    def run(self):
-        self.event.wait(self.duration)
-        if not self.event.is_set():
-            self.func()
+            raise RuntimeError('Inable to locate a protocol named ' + xml.name)
 
-        self.event.clear()
-        self.thread = None
+        return super(ProtocolBaseMeta, cls).__call__(xml)
 
-    @property
-    def is_running(self):
-        return self.thread is not None
 
-
-class IRCode(object):
-
-    def __init__(self, decoder, original_rlc, normalized_rlc, data):
-        if not isinstance(original_rlc[0], list):
-            original_code = [original_rlc]
-
-        if not isinstance(normalized_rlc[0], list):
-            normalized_code = [normalized_rlc]
-
-        self._repeat_timer = Timer(decoder.reset, decoder.repeat_timeout)
-        self._decoder = decoder
-        self._original_rlc = original_rlc
-        self._normalized_rlc = normalized_rlc
-        self._data = data
-        self._code = None
-        self.name = None
-        self.name = str(self)
-        self.__xml = None
-
-    @property
-    def xml(self):
-        if self.__xml is None:
-            self.__xml = xml_handler.XMLElement(
-                'IRCode',
-                decoder=self.decoder,
-                **self._data
-            )
-            xml = xml_handler.XMLElement('OriginalRLC')
-            text = []
-
-            for item in self._original_rlc:
-                if item > 0:
-                    text += ['+' + str(item)]
-                else:
-                    text += [str(item)]
-
-            xml.text = ', '.join(text)
-
-            self.__xml.OriginalRLC = xml
-
-            xml = xml_handler.XMLElement('NormalizedRLC')
-            text = []
-
-            for item in self._normalized_rlc:
-                if item > 0:
-                    text += ['+' + str(item)]
-                else:
-                    text += [str(item)]
-
-            xml.text = ', '.join(text)
-
-            self.__xml.NormalizedRLC = xml
-
-        return self.__xml
-
-    @property
-    def repeat_timer(self):
-        return self._repeat_timer
-
-    def __iter__(self):
-        yield 'decoder', self.decoder.name
-        for key, value in self._data.items():
-            yield key, value
-
-    @property
-    def params(self):
-        res = []
-
-        for key in (
-            'mode',
-            'n',
-            'h',
-            'oem1',
-            'oem2',
-            'device',
-            'sub_device',
-            'extended_function',
-            'function',
-            'g',
-            'x',
-            'code'
-        ):
-            try:
-                if getattr(self, key) is not None:
-                    res += [key]
-            except AttributeError:
-                continue
-
-        for key in sorted(list(self._data.keys())):
-            for char in list('MDFSECTXOHGN'):
-                if key.upper().startswith(char):
-                    break
-            else:
-                res += [key.lower()]
-
-        if 'T' in self._data:
-            res += ['toggle']
-
-        return res
-
-    @property
-    def decoder(self):
-        return self._decoder
-
-    @property
-    def frequency(self):
-        return self._data['frequency']
-
-    @property
-    def original_rlc(self):
-        return self._original_rlc[:]
-
-    @property
-    def normalized_rlc(self):
-        return self._normalized_rlc[:]
-
-    @property
-    def original_rlc_pronto(self):
-        res = []
-        for code in self._original_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
-
-        return res
-
-    @property
-    def normalized_rlc_pronto(self):
-        res = []
-        for code in self._normalized_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
-
-        return res
-
-    @property
-    def original_mce_rlc(self):
-        res = []
-        for code in self._original_rlc:
-            res += [utils.build_mce_rlc(code[:])]
-
-        return res
-
-    @property
-    def original_mce_pronto(self):
-        res = []
-        for code in self.original_mce_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
-
-        return res
-
-    @property
-    def normalized_mce_rlc(self):
-        res = []
-        for code in self._normalized_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
-
-        return res
-
-    @property
-    def normalized_mce_pronto(self):
-        res = []
-        for code in self.normalized_mce_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
-
-        return res
-
-    @property
-    def device(self):
-        return self._data.get('D', None)
-
-    @property
-    def sub_device(self):
-        return self._data.get('S', None)
-
-    @property
-    def function(self):
-        return self._data.get('F', None)
-
-    @property
-    def toggle(self):
-        return self._data.get('T', None)
-
-    @property
-    def mode(self):
-        return self._data.get('M', None)
-
-    @property
-    def n(self):
-        return self._data.get('N', None)
-
-    @property
-    def g(self):
-        return self._data.get('G', None)
-
-    @property
-    def x(self):
-        return self._data.get('X', None)
-
-    @property
-    def extended_function(self):
-        return self._data.get('E', None)
-
-    @property
-    def checksum(self):
-        return self._data.get('CHECKSUM', None)
-
-    @property
-    def u(self):
-        return self._data.get('U', None)
-
-    @property
-    def oem1(self):
-        return self._data.get('OEM1', None)
-
-    @property
-    def oem2(self):
-        return self._data.get('OEM2', None)
-
-    def __getattr__(self, item):
-        if item in self.__dict__:
-            return self.__dict__[item]
-
-        if item.upper() in self._data:
-            return self._data[item.upper()]
-
-        raise AttributeError(item)
-
-    def __int__(self):
-        bits = ''
-
-        def _get_num_bits(label):
-            for name, start, stop in self._decoder._parameters:
-                if name != label:
-                    continue
-                return (stop + 1) - start
-
-            return 0
-
-        def _get_bits(val, num_bits):
-            bts = []
-
-            for i in range(num_bits):
-                bts.insert(0, str(self._decoder._get_bit(val, i)))
-
-            return ''.join(bts)
-
-        keys = []
-
-        for key in (
-            'M',
-            'N',
-            'H',
-            'OEM1',
-            'OEM2',
-            'D',
-            'S',
-            'E',
-            'F',
-            'G',
-            'X',
-            'CODE'
-        ):
-            if key in self._data:
-                if key == 'CODE':
-                    bits += bin(self.code)[2:]
-                else:
-                    keys += [key]
-                    bits += _get_bits(
-                        getattr(self, key.lower()),
-                        _get_num_bits(key)
-                    )
-
-        for key in sorted(list(self._data.keys())):
-            if key in keys:
-                continue
-
-            for char in list('MDFSECTXOHNG'):
-                if key.upper().startswith(char):
-                    break
-            else:
-                keys += [key]
-                bits += _get_bits(
-                    getattr(self, key.lower()),
-                    _get_num_bits(key)
-                )
-
-        return int(bits, 2)
-
-    @property
-    def hexdecimal(self):
-        res = hex(int(self))[2:].upper().rstrip('L')
-        return '0x' + res.zfill(len(res) + (len(res) % 2))
-
-    def __eq__(self, other):
-        if isinstance(other, list):
-            return self.normalized_rlc == other
-
-        if isinstance(other, IRCode):
-            return (
-                other.decoder == self.decoder and
-                other._data == self._data
-            )
-        else:
-            return other == self.normalized_pronto
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __str__(self):
-        if self.name is None:
-            res = []
-            for key in self.params:
-                value = getattr(self, key)
-                res += [('%X' % (value,)).zfill(2)]
-
-            return self.decoder.name + '.' + ':'.join(res)
-
-        return self.name
-
-
+@six.add_metaclass(ProtocolBaseMeta)
 class IrProtocolBase(object):
     irp = ''
     frequency = 36000
-    tolerance = 1
-    frequency_tolerance = 2
+
     bit_count = 0
     encoding = ''
 
@@ -420,9 +80,129 @@ class IrProtocolBase(object):
     encode_parameters = []
     repeat_timeout = 0
 
-    def __init__(self):
+    def __init__(self, xml=None):
         self._last_code = None
         self._enabled = True
+        self._tolerance = 1
+        self._frequency_tolerance = 2
+        self._saved_codes = []
+        self._sequence = []
+
+        if self.repeat_timeout == 0:
+            if self._repeat_lead_out and self._repeat_lead_out[-1] > 0:
+                self.repeat_timeout = self._repeat_lead_out[-1] + 10
+
+            elif not self._repeat_bursts and (self._repeat_lead_in or self._repeat_lead_out):
+                tt = sum(abs(item) for item in self._repeat_lead_in[:] + self._repeat_lead_out[:])
+                self.repeat_timeout = tt + 10
+
+            elif self._lead_out and self._lead_out[-1] > 0:
+                self.repeat_timeout = self._lead_out[-1] + 10
+
+        if xml is not None:
+            self._enabled = xml.enabled
+            self._tolerance = xml.tolerance
+            self._frequency_tolerance = xml.frequency_tolerance
+
+            for code in xml.Codes:
+                code = IRCode.load_from_xml(code, self)
+                code.save()
+
+        self._xml = xml
+
+    def __iter__(self):
+        for code in self._saved_codes:
+            yield code
+
+    def frequency_match(self, frequency):
+        return self._match(frequency, self.frequency, self.frequency_tolerance)
+
+    @property
+    def xml(self):
+        if self._xml is None:
+            self._xml = xml_handler.XMLElement(
+                'IRProtocol',
+                name=self.name
+            )
+
+        self._xml.enabled = self._enabled
+        self._xml.tolerance = self._tolerance
+        self._xml.frequency_tolerance = self._frequency_tolerance
+
+        for code_xml in self._xml:
+            self._xml.remove(code_xml)
+
+        for code in self._saved_codes:
+            self._xml.append(code.xml)
+
+        return self._xml
+
+    @property
+    def function(self):
+        for name, min_val, max_val in self.encode_parameters:
+            if name == 'function':
+                return list(range(min_val, max_val + 1))
+
+        return []
+
+    @property
+    def device(self):
+        for name, min_val, max_val in self.encode_parameters:
+            if name == 'device':
+                return list(range(min_val, max_val + 1))
+
+        return []
+
+    @property
+    def sub_device(self):
+        for name, min_val, max_val in self.encode_parameters:
+            if name == 'sub_device':
+                return list(range(min_val, max_val + 1))
+
+        return []
+
+    @property
+    def extended_function(self):
+        for name, min_val, max_val in self.encode_parameters:
+            if name == 'extended_function':
+                return list(range(min_val, max_val + 1))
+
+        return []
+
+    @property
+    def mode(self):
+        for name, min_val, max_val in self.encode_parameters:
+            if name == 'mode':
+                return list(range(min_val, max_val + 1))
+
+        return []
+
+    @property
+    def toggle(self):
+        for name, min_val, max_val in self.encode_parameters:
+            if name == 'toggle':
+                return list(range(min_val, max_val + 1))
+
+        return []
+
+    @property
+    def oem1(self):
+        for name, min_val, max_val in self.encode_parameters:
+            if name == 'oem1':
+                return list(range(min_val, max_val + 1))
+
+        return []
+
+    @property
+    def oem2(self):
+        for name, min_val, max_val in self.encode_parameters:
+            if name == 'oem2':
+                return list(range(min_val, max_val + 1))
+
+        return []
+
+    def __call__(self):
+        return self.__class__()
 
     @property
     def enabled(self):
@@ -431,6 +211,22 @@ class IrProtocolBase(object):
     @enabled.setter
     def enabled(self, value):
         self._enabled = value
+
+    @property
+    def tolerance(self):
+        return self._tolerance
+
+    @tolerance.setter
+    def tolerance(self, value):
+        self._tolerance = value
+
+    @property
+    def frequency_tolerance(self):
+        return self._frequency_tolerance
+
+    @frequency_tolerance.setter
+    def frequency_tolerance(self, value):
+        self._frequency_tolerance = value
 
     @property
     def name(self):
@@ -575,9 +371,40 @@ class IrProtocolBase(object):
         return packet[:]
 
     def decode(self, data, frequency=0):
-        if frequency > 0:
-            if not self._match(frequency, self.frequency, self.frequency_tolerance / 10.0):
-                raise DecodeError('Incorrect frequency')
+        if self._last_code is not None and (
+            self._repeat_lead_in or
+            self._repeat_lead_out
+        ):
+            try:
+                code = code_wrapper.CodeWrapper(
+                    self.encoding,
+                    self._repeat_lead_in[:],
+                    self._repeat_lead_out[:],
+                    [],
+                    self._repeat_bursts[:],
+                    self.tolerance,
+                    data[:]
+                )
+
+                if self._repeat_bursts and self.__class__.decode == IrProtocolBase.decode:
+                    params = dict(frequency=self.frequency)
+                    for name, start, stop in self._parameters:
+                        params[name] = code.get_value(start, stop)
+
+                    c = IRCode(self, code.original_code, list(code), params)
+                    if c == self._last_code:
+                        self._last_code._code = code
+                        return self._last_code
+                    else:
+                        self._last_code.repeat_timer.stop()
+                        self._last_code = None
+                        raise DecodeError
+
+                self._last_code._code = code
+                return self._last_code
+
+            except DecodeError:
+                pass
 
         code = code_wrapper.CodeWrapper(
             self.encoding,
@@ -600,10 +427,34 @@ class IrProtocolBase(object):
 
         c = IRCode(self, code.original_code, list(code), params)
         c._code = code
+
+        if self.__class__.decode == IrProtocolBase.decode:
+            if self._last_code is not None:
+                if self._last_code == c:
+                    return self._last_code
+
+                self._last_code.repeat_timer.stop()
+
+            self._last_code = c
+
         return c
 
+    def _build_repeat_packet(self, repeat_count=0):
+        timings = self._repeat_lead_in[:] + self._repeat_lead_out[:]
+        if timings[-1] > 0:
+            tt = sum(abs(item) for item in timings[:-1])
+            timings[-1] = -(timings[-1] - tt)
+
+        packet = [timings] * repeat_count
+        return packet
+
     def _get_timing(self, num, index):
-        return self._bursts[self._get_bit(num, index)]
+        if len(self._bursts) > 2:
+            val = self._get_bits(num, index, index + 1)
+        else:
+            val = self._get_bit(num, index)
+
+        return self._bursts[val]
 
     @staticmethod
     def _set_bit(value, bit_num, state):

@@ -52,8 +52,8 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
     _repeat_lead_out = []
     _repeat_bursts = []
     _parameters = [
-        ['M', 0, 7],
-        ['N', 8, 15],
+        ['OEM1', 0, 7],
+        ['OEM2', 8, 15],
         ['H', 16, 19],
         ['D', 20, 23],
         ['S', 24, 31],
@@ -68,32 +68,45 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
         ['function', 0, 255],
         ['g', 0, 255],
         ['extended_function', 0, 15],
-        ['mode', 0, 255],
-        ['n', 0, 255]
+        ['oem1', 0, 255],
+        ['oem2', 0, 255]
     ]
 
-    def _calc_checksum(self, mode, n):
-        h = ((mode ^ n) >> 4) ^ (mode ^ n)
+    def _calc_checksum(self, oem1, oem2):
+        h = ((oem1 ^ oem2) >> 4) ^ (oem1 ^ oem2)
         return self._get_bits(h, 0, 3)
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
+        if code.oem1 == 3 and code.oem2 == 1:
+            raise DecodeError('JVC56 protocol')
+        if code.oem1 == 20 and code.oem2 == 99:
+            raise DecodeError('Fijitsu56 protocol')
+
         h = self._calc_checksum(
-            code.mode,
-            code.n
+            code.oem1,
+            code.oem2
         )
 
         if h != code.h:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, mode, device, sub_device, function, extended_function, g, n):
-        h = self._calc_checksum(mode, n)
+    def encode(self, oem1, oem2, device, sub_device, function, extended_function, g, repeat_count):
+        h = self._calc_checksum(oem1, oem2)
 
         packet = self._build_packet(
-            list(self._get_timing(mode, i) for i in range(8)),
-            list(self._get_timing(n, i) for i in range(8)),
+            list(self._get_timing(oem1, i) for i in range(8)),
+            list(self._get_timing(oem2, i) for i in range(8)),
             list(self._get_timing(h, i) for i in range(4)),
             list(self._get_timing(device, i) for i in range(4)),
             list(self._get_timing(sub_device, i) for i in range(8)),
@@ -102,7 +115,7 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
             list(self._get_timing(g, i) for i in range(8))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[
@@ -116,12 +129,12 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
             432, -1296, 432, -74736
         ]]
 
-        params = [dict(device=4, extended_function=126, function=45, g=175, mode=59, n=165, sub_device=86)]
+        params = [dict(device=4, extended_function=126, function=45, g=175, oem1=59, oem2=165, sub_device=86)]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
-        params = dict(device=4, extended_function=126, function=45, g=175, mode=59, n=165, sub_device=86)
+        params = dict(device=4, extended_function=126, function=45, g=175, oem1=59, oem2=165, sub_device=86)
         protocol_base.IrProtocolBase._test_encode(self, params)
 
 

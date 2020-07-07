@@ -30,8 +30,8 @@ import pyIRDecoder
 import time
 
 
-ir_decoder = pyIRDecoder.IrDecoder()
-ir_encoder = pyIRDecoder.IrDecoder()
+ir_decoder = pyIRDecoder.IRDecoder()
+ir_encoder = pyIRDecoder.IREncoder()
 
 decoding_times = []
 
@@ -709,6 +709,7 @@ class RECS800090(TestBase):
     decoder = ir_decoder.RECS800090
     encoder = ir_encoder.RECS800090
 
+
 class Revox(TestBase):
     decoder = ir_decoder.Revox
     encoder = ir_encoder.Revox
@@ -890,12 +891,6 @@ class XBoxOne(TestBase):
 
 
 if __name__ == '__main__':
-
-    for c in ir_decoder.GI4DTV.encode(device=5, function=45):
-        c = ir_decoder.GI4DTV.decode(c, ir_decoder.GI4DTV.frequency)
-        print(c.device, c.function)
-
-
     AdNotham.test()
     Aiwa.test()
     Akai.test()
@@ -905,8 +900,8 @@ if __name__ == '__main__':
     Anthem.test()
     Apple.test()
     Archer.test()
-    #Arctech.test()
-    #Arctech38.test()
+    Arctech.test()
+    Arctech38.test()
     Audiovox.test()
     Barco.test()
     Blaupunkt.test()
@@ -921,6 +916,12 @@ if __name__ == '__main__':
     Dgtec.test()
     Digivision.test()
     DirecTV.test()
+    DirecTV0.test()
+    DirecTV1.test()
+    DirecTV2.test()
+    DirecTV3.test()
+    DirecTV4.test()
+    DirecTV5.test()
     DishNetwork.test()
     DishPlayer.test()
     Dyson.test()
@@ -939,8 +940,8 @@ if __name__ == '__main__':
     # GI4DTV.test()
     GICable.test()
     GIRG.test()
-    #Grundig16.test()
-    #Grundig1630.test()
+    # Grundig16.test()
+    # Grundig1630.test()
     GuangZhou.test()
     GwtS.test()
     GXB.test()
@@ -959,7 +960,7 @@ if __name__ == '__main__':
     Lumagen.test()
     Lutron.test()
     Matsui.test()
-    # MCE.test()
+    MCE.test()
     MCIR2kbd.test()
     MCIR2mouse.test()
     Metz19.test()

@@ -76,41 +76,37 @@ class NRC16(protocol_base.IrProtocolBase):
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
-            self._lead_out = [-15000]
-            try:
+            if self._lead_out == [-110000]:
+                self._lead_out = [-15000]
                 code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-            except DecodeError:
-                self.reset()
-                raise
-
-        if code.c0 != 1:
-            self.reset()
-            raise DecodeError('Invalid checksum')
-
-        if code.device == 127 and code.function == 254:
-            if self._last_code is None:
-                self._lead_out = [-110000]
-                raise RepeatLeadIn
             else:
-                self._last_code.repeat_timer.stop()
-                self.reset()
-                raise RepeatLeadOut
-        else:
+                self._lead_out = [-110000]
+                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._lead_out == [-15000]:
             if self._last_code is None:
-                self._last_code = code
-                code.repeat_timer.start()
-                return code
+                if code.c0 != 1 or code.device != 127 and code.function != 254:
+                    raise DecodeError('Invalid checksum')
 
-            if not self._last_code.repeat_timer.is_running:
-                raise RepeatTimeoutExpired
+                raise RepeatLeadIn
 
-            if self._last_code != code:
-                raise DecodeError('Repeat code does not match last code')
+            if self._last_code == code:
+                return self._last_code
 
-            self._last_code.repeat_timer.start()
-            return self._last_code
+            raise RepeatLeadOut('Invalid repeat frame')
 
-    def encode(self, device, function):
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+            raise RepeatLeadOut('Invalid frame')
+
+        self._last_code = code
+        return code
+
+    def encode(self, device, function, repeat_count=0):
         lead_out = self._lead_out
 
         self._lead_out = [-15000]
@@ -141,7 +137,11 @@ class NRC16(protocol_base.IrProtocolBase):
 
         self._lead_out = lead_out
 
-        return [prefix, code, suffix]
+        packet = [prefix]
+        packet += [code] * (repeat_count + 1)
+        packet += [suffix]
+
+        return packet
 
     def _test_decode(self):
         rlc_codes = [

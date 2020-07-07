@@ -46,7 +46,6 @@ class Aiwa(protocol_base.IrProtocolBase):
 
     _repeat_lead_in = [TIMING * 16, -TIMING * 8]
     _repeat_lead_out = [TIMING, -TIMING * 165]
-    _repeat_bursts = []
 
     _parameters = [
         ['D', 0, 7],
@@ -72,6 +71,9 @@ class Aiwa(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None and self._last_code == code:
+            return code
+
         device_checksum, sub_checksum, func_checksum = (
             self._calc_checksum(code.device, code.sub_device, code.function)
         )
@@ -81,25 +83,28 @@ class Aiwa(protocol_base.IrProtocolBase):
             sub_checksum != code.s_checksum or
             func_checksum != code.f_checksum
         ):
+            self._last_code = None
             raise DecodeError('Checksum failed')
 
         return code
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
         dev_checksum, sub_checksum, func_checksum = (
             self._calc_checksum(device, sub_device, function)
         )
 
-        packet = self._build_packet(
-            list(self._get_timing(device, i) for i in range(8)),
-            list(self._get_timing(sub_device, i) for i in range(5)),
-            list(self._get_timing(dev_checksum, i) for i in range(8)),
-            list(self._get_timing(sub_checksum, i) for i in range(5)),
-            list(self._get_timing(function, i) for i in range(8)),
-            list(self._get_timing(func_checksum, i) for i in range(8))
-        )
-
-        return [packet]
+        packet = [
+            self._build_packet(
+                list(self._get_timing(device, i) for i in range(8)),
+                list(self._get_timing(sub_device, i) for i in range(5)),
+                list(self._get_timing(dev_checksum, i) for i in range(8)),
+                list(self._get_timing(sub_checksum, i) for i in range(5)),
+                list(self._get_timing(function, i) for i in range(8)),
+                list(self._get_timing(func_checksum, i) for i in range(8))
+            )
+        ]
+        packet += self._build_repeat_packet(repeat_count)
+        return packet
 
     def _test_decode(self):
         rlc = [

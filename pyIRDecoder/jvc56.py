@@ -71,14 +71,22 @@ class JVC56(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         checksum = self._calc_checksum(code.device, code.sub_device, code.function, code.x)
 
         if checksum != code.checksum or code.c0 != 3 or code.c1 != 1:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function, x):
+    def encode(self, device, sub_device, function, x, repeat_count=0):
         c0 = 3
         c1 = 1
         checksum = self._calc_checksum(
@@ -98,7 +106,7 @@ class JVC56(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(8)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

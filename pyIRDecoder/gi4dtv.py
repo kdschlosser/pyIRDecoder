@@ -88,14 +88,23 @@ class GI4DTV(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         c0, c1, c2, c3 = self._calc_checksum(code.device, code.function)
 
         if c0 != code.c0 or c1 != code.c1 or c2 != code.c2 or c3 != code.c3:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         c0, c1, c2, c3 = self._calc_checksum(device, function)
 
         packet = self._build_packet(
@@ -107,7 +116,7 @@ class GI4DTV(protocol_base.IrProtocolBase):
             list(self._get_timing(c3, i) for i in range(1))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

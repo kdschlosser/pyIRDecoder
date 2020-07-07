@@ -40,13 +40,8 @@ class Archer(protocol_base.IrProtocolBase):
     bit_count = 5
     encoding = 'lsb'
 
-    _lead_in = []
     _lead_out = [TIMING, -9700]
     _bursts = [[TIMING, -3300], [TIMING, -4700]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['F', 0, 4],
@@ -56,12 +51,12 @@ class Archer(protocol_base.IrProtocolBase):
         ['function', 0, 31],
     ]
 
-    def encode(self, function):
+    def encode(self, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(function, i) for i in range(5))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[12, -3300, 12, -3300, 12, -4700, 12, -4700, 12, -4700, 12, -9700]]

@@ -69,6 +69,23 @@ class Kathrein(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if self._last_code == code:
+
+                c = self._last_code._code
+                function = c.get_value(0, 7)
+
+                if function != code.function:
+                    self._last_code.repeat_timer.stop()
+                    self._last_code = None
+                    raise DecodeError('Invalid repeat frame')
+
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         dev_checksum, func_checksum = self._calc_checksum(code.device, code.function)
 
         if dev_checksum != code.d_checksum or func_checksum != code.f_checksum:
@@ -76,20 +93,28 @@ class Kathrein(protocol_base.IrProtocolBase):
 
         return code
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         dev_checksum, func_checksum = self._calc_checksum(
             device,
             function,
         )
 
-        packet = self._build_packet(
-            list(self._get_timing(device, i) for i in range(4)),
-            list(self._get_timing(dev_checksum, i) for i in range(4)),
-            list(self._get_timing(function, i) for i in range(8)),
-            list(self._get_timing(func_checksum, i) for i in range(8))
+        packet = [
+            self._build_packet(
+                list(self._get_timing(device, i) for i in range(4)),
+                list(self._get_timing(dev_checksum, i) for i in range(4)),
+                list(self._get_timing(function, i) for i in range(8)),
+                list(self._get_timing(func_checksum, i) for i in range(8))
+            )
+        ]
+
+        repeat = self._build_packet(
+            list(self._get_timing(function, i) for i in range(8))
         )
 
-        return [packet]
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

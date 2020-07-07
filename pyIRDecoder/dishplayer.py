@@ -43,12 +43,7 @@ class DishPlayer(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING, -TIMING * 11]
     _lead_out = [TIMING, -TIMING * 11]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING * 5], [TIMING, -TIMING * 3]]
-
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
 
     _parameters = [
         ['F', 0, 5],
@@ -63,36 +58,64 @@ class DishPlayer(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
-        if self._last_code is not None:
-            self._lead_in = []
-        else:
-            self._lead_in = [TIMING, -TIMING * 11]
-
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
+            if self._lead_in and self._last_code is None:
+                raise
+
             self._lead_in = [TIMING, -TIMING * 11]
-            self._last_code = None
-            raise
+
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        params = dict(
+            D=code.device,
+            S=code.sub_device,
+            F=function,
+            frequency=self.frequency
+        )
+
+        c = protocol_base.IRCode(
+            self,
+            code.original_rlc,
+            code.normalized_rlc,
+            params
+        )
+        c._code = c
 
         if self._last_code is None:
-            self._last_code = code
+            del self._lead_in[:]
+            self._last_code = c
+        elif self._last_code == c:
+            return self._last_code
+        else:
+            self._last_code.repeat_timer.stop()
+            self._last_code = c
 
-        elif code != self._last_code:
-            self._last_code = None
-            self._lead_in = [TIMING, -TIMING * 11]
-            raise DecodeError('Repeat code does not match')
+        return c
 
-        return self._last_code
+    def encode(self, device, sub_device, function, repeat_count=0):
+        lead_in = self._lead_in[:]
 
-    def encode(self, device, sub_device, function):
+        self._lead_in = [TIMING, -TIMING * 11]
         packet = self._build_packet(
             list(self._get_timing(function, i) for i in range(6)),
             list(self._get_timing(sub_device, i) for i in range(5)),
             list(self._get_timing(device, i) for i in range(2)),
         )
+        del self._lead_in[:]
+        repeat = self._build_packet(
+            list(self._get_timing(function, i) for i in range(6)),
+            list(self._get_timing(sub_device, i) for i in range(5)),
+            list(self._get_timing(device, i) for i in range(2)),
+        )
 
-        return [packet]
+        self._lead_in = lead_in[:]
+
+        packet = [packet]
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [

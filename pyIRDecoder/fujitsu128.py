@@ -120,7 +120,8 @@ class Fujitsu128(protocol_base.IrProtocolBase):
         a12,
         a13,
         a14,
-        a15
+        a15,
+        repeat_count=0
     ):
         items = [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15]
 
@@ -130,7 +131,7 @@ class Fujitsu128(protocol_base.IrProtocolBase):
 
         packet = self._build_packet(*items)
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

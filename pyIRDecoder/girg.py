@@ -61,14 +61,14 @@ class GIRG(protocol_base.IrProtocolBase):
         ['function', 0, 63],
     ]
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(function, i) for i in range(6)),
             list(self._get_timing(sub_device, i) for i in range(2)),
             list(self._get_timing(device, i) for i in range(8)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[
