@@ -47,8 +47,8 @@ class PID0001(protocol_base.IrProtocolBase):
     _bursts = [[24, -9314], [24, -13486]]
 
     _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _repeat_lead_out = [1, -28000]
+    _repeat_bursts = [[24, -9314], [24, -13486]]
 
     _parameters = [
         ['F', 0, 4],
@@ -58,12 +58,39 @@ class PID0001(protocol_base.IrProtocolBase):
         ['function', 0, 31],
     ]
 
-    def encode(self, function):
-        packet = self._build_packet(
+    def decode(self, data, frequency=0):
+        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                code._code.get_value(0, 4) == self._last_code.fuction
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
+        self._last_code = code
+        return code
+
+    def encode(self, function, repeat_count=0):
+        packet = [
+            self._build_packet(
+                list(self._get_timing(function, i) for i in range(5))
+            )
+        ]
+
+        lead_in = self._lead_in[:]
+        del self._lead_in[:]
+
+        repeat = self._build_packet(
             list(self._get_timing(function, i) for i in range(5))
         )
 
-        return [packet]
+        self._lead_in = lead_in[:]
+        packet += [repeat] * repeat_count
+
+        return packet
 
     def _test_decode(self):
         rlc = [[

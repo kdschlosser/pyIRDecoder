@@ -65,16 +65,6 @@ class PID0083(protocol_base.IrProtocolBase):
         return f, e
 
     def decode(self, data, frequency=0):
-        tolerance = self.tolerance
-
-        self.tolerance = self.frequency_tolerance
-
-        if not self._match(frequency, self.frequency):
-            self.tolerance = tolerance
-            raise DecodeError('Invalid frequency')
-
-        self.tolerance = tolerance
-
         mark, space = data[-2:]
 
         if (
@@ -126,14 +116,24 @@ class PID0083(protocol_base.IrProtocolBase):
             frequency=self.frequency
         )
 
-        return protocol_base.IRCode(self, data[:], cleaned, params)
+        code = protocol_base.IRCode(self, data[:], cleaned, params)
 
-    def encode(self, function):
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+        self._last_code = code
+
+        return code
+
+    def encode(self, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(function, i) for i in range(5))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [

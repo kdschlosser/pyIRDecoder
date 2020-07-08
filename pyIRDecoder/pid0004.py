@@ -58,12 +58,12 @@ class PID0004(protocol_base.IrProtocolBase):
         ['function', 0, 63],
     ]
 
-    def encode(self, function):
+    def encode(self, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(function, i) for i in range(6))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

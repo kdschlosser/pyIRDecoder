@@ -43,12 +43,9 @@ class PaceMSS(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING, -TIMING * 5, TIMING, -TIMING * 5]
     _lead_out = [TIMING, 120000]
-    _middle_timings = []
     _bursts = [[TIMING, -TIMING * 7], [TIMING, -TIMING * 11]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _current_toggle = 0
 
     _parameters = [
         ['T', 0, 0],
@@ -59,17 +56,33 @@ class PaceMSS(protocol_base.IrProtocolBase):
     encode_parameters = [
         ['device', 0, 1],
         ['function', 0, 255],
-        ['toggle', 0, 1]
     ]
 
-    def encode(self, device, function, toggle):
+    def decode(self, data, frequency=0):
+        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                self._last_code.toggle == code.toggle
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
+        self._last_code = code
+        return code
+
+    def encode(self, device, function, repeat_count=0):
+        self._current_toggle = int(not self._current_toggle)
+
         packet = self._build_packet(
-            list(self._get_timing(toggle, i) for i in range(1)),
+            list(self._get_timing(self._current_toggle, i) for i in range(1)),
             list(self._get_timing(device, i) for i in range(1)),
             list(self._get_timing(function, i) for i in range(8))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

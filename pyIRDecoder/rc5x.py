@@ -26,12 +26,9 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import RepeatLeadOut
 
 TIMING = 889
-
-# [TIMING, -TIMING]  0
-# [-TIMING, TIMING]  1
 
 
 class RC5x(protocol_base.IrProtocolBase):
@@ -78,9 +75,26 @@ class RC5x(protocol_base.IrProtocolBase):
             frequency=self.frequency
         )
 
-        return protocol_base.IRCode(self, code.original_rlc, code.normalized_rlc, params)
+        code = protocol_base.IRCode(self, code.original_rlc, code.normalized_rlc, params)
 
-    def encode(self, device, sub_device, function, toggle):
+        if self._last_code is not None:
+            if (
+                    self._last_code == code and
+                    self._last_code.toggle == code.toggle
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
+            if self._last_code == code:
+                self._last_code = None
+                raise RepeatLeadOut
+
+        self._last_code = code
+        return code
+
+    def encode(self, device, sub_device, function, repeat_count=0):
+        toggle = 0
         s1 = int(not (self._get_bit(sub_device, 6)))
 
         packet = self._build_packet(
@@ -92,7 +106,20 @@ class RC5x(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(6)),
         )
 
-        return [packet]
+        toggle = 1
+
+        lead_out = self._build_packet(
+            list(self._get_timing(s1, i) for i in range(1)),
+            list(self._get_timing(toggle, i) for i in range(1)),
+            list(self._get_timing(device, i) for i in range(5)),
+            self._middle_timings,
+            list(self._get_timing(sub_device, i) for i in range(6)),
+            list(self._get_timing(function, i) for i in range(6)),
+        )
+        packet = [packet] * (repeat_count + 1)
+        packet += [lead_out]
+
+        return packet
 
     def _test_decode(self):
         rlc = [[
