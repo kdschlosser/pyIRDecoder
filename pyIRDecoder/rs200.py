@@ -101,9 +101,18 @@ class Rs200(protocol_base.IrProtocolBase):
             frequency=self.frequency
         )
 
-        return protocol_base.IRCode(self, code.original_rlc, code.normalized_rlc, params)
+        code = protocol_base.IRCode(self, code.original_rlc, code.normalized_rlc, params)
 
-    def encode(self, device, function, h1, h2, h3, h4):
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
+        self._last_code = code
+        return code
+
+    def encode(self, device, function, h1, h2, h3, h4, repeat_count=0):
         c0 = 25
         c1 = 0
         h1 -= 1
@@ -134,7 +143,7 @@ class Rs200(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(4)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

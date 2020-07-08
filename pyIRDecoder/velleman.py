@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadOut
 
 
 class Velleman(protocol_base.IrProtocolBase):
@@ -62,14 +62,30 @@ class Velleman(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                self._last_code.toggle == code.toggle
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            if self._last_code == code:
+                self._last_code = None
+                raise RepeatLeadOut
+
+            self._last_code = None
 
         if code.c0 != 1:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, function, toggle):
+    def encode(self, device, function, repeat_count=0):
         c0 = 1
+        toggle = 0
+
         packet = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(toggle, i) for i in range(1)),
@@ -77,7 +93,19 @@ class Velleman(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(5)),
         )
 
-        return [packet]
+        toggle = 1
+
+        lead_out = self._build_packet(
+            list(self._get_timing(c0, i) for i in range(1)),
+            list(self._get_timing(toggle, i) for i in range(1)),
+            list(self._get_timing(device, i) for i in range(3)),
+            list(self._get_timing(function, i) for i in range(5)),
+        )
+
+        packet = [packet] * (repeat_count + 1)
+        packet += [lead_out]
+
+        return packet
 
     def _test_decode(self):
         rlc = [

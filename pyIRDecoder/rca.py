@@ -69,14 +69,23 @@ class RCA(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         d_checksum, f_checksum = self._calc_checksum(code.device, code.function)
 
         if f_checksum != code.f_checksum or d_checksum != code.d_checksum:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         d_checksum, f_checksum = self._calc_checksum(
             device,
             function,
@@ -89,7 +98,7 @@ class RCA(protocol_base.IrProtocolBase):
             list(self._get_timing(f_checksum, i) for i in range(8))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

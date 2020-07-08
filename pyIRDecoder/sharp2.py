@@ -64,6 +64,7 @@ class Sharp2(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
         if code.c0 != 2:
             raise DecodeError('Checksum failed')
 
@@ -75,9 +76,19 @@ class Sharp2(protocol_base.IrProtocolBase):
             C0=code.c0
         )
 
-        return protocol_base.IRCode(self, code.original_rlc, code.normalized_rlc, params)
+        code = protocol_base.IRCode(self, code.original_rlc, code.normalized_rlc, params)
 
-    def encode(self, device, function):
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
+        self._last_code = code
+        return code
+
+    def encode(self, device, function, repeat_count=0):
         c0 = 2
 
         function = self._invert_bits(function, 8)
@@ -88,7 +99,7 @@ class Sharp2(protocol_base.IrProtocolBase):
             list(self._get_timing(c0, i) for i in range(2)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

@@ -62,7 +62,7 @@ class SamsungSMTG(protocol_base.IrProtocolBase):
         ['function', 0, 65335],
     ]
 
-    def encode(self, device, sub_device, function):
+    def encode(self, device, sub_device, function, repeat_count=0):
 
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(16)),
@@ -71,7 +71,7 @@ class SamsungSMTG(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(16))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

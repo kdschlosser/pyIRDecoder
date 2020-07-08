@@ -64,12 +64,21 @@ class Revox(protocol_base.IrProtocolBase):
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
+            self._last_code = None
+
         if code.c0 != 0:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         c0 = 0
 
         packet = self._build_packet(
@@ -78,7 +87,7 @@ class Revox(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(6))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

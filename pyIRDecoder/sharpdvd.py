@@ -79,6 +79,14 @@ class SharpDVD(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         checksum = self._calc_checksum(
             code.device,
             code.sub_device,
@@ -89,9 +97,10 @@ class SharpDVD(protocol_base.IrProtocolBase):
         if code.c0 != 170 or code.c1 != 90 or code.c2 != 15 or checksum != code.checksum:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function, extended_function):
+    def encode(self, device, sub_device, function, extended_function, repeat_count=0):
         checksum = self._calc_checksum(
             device,
             sub_device,
@@ -114,7 +123,7 @@ class SharpDVD(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(4))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[

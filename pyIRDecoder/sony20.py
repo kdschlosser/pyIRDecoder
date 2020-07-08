@@ -61,24 +61,14 @@ class Sony20(protocol_base.IrProtocolBase):
         ['function', 0, 127],
     ]
 
-    def encode(self, device, function, sub_device):
-        encoded_dev = list(
-            self._get_timing(device, i) for i in range(5)
-        )
-        encoded_func = list(
-            self._get_timing(function, i) for i in range(7)
-        )
-        encoded_sub = list(
-            self._get_timing(sub_device, i) for i in range(8)
-        )
-
+    def encode(self, device, function, sub_device, repeat_count=0):
         packet = self._build_packet(
-            encoded_func,
-            encoded_dev,
-            encoded_sub
+            list(self._get_timing(function, i) for i in range(7)),
+            list(self._get_timing(device, i) for i in range(5)),
+            list(self._get_timing(sub_device, i) for i in range(8))
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc =[[

@@ -48,7 +48,7 @@ class RECS800068(recs800045.RECS800045.__class__):
              +180, -5580, +180, -5580, +180, -5580, +180, -65820]
         ]
 
-        params = [dict(function=32, toggle=0, device=4)]
+        params = [dict(function=32, device=4)]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 

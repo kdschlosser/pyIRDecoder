@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError, RepeatLeadOut
+from . import DecodeError, RepeatLeadIn
 
 
 TIMING = 460
@@ -68,24 +68,43 @@ class RCAOld(protocol_base.IrProtocolBase):
         return d, f
 
     def decode(self, data, frequency=0):
-        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-        if self._lead_in[0] == TIMING * 8:
-            self._lead_in[0] = TIMING * 40
-        else:
-            self._lead_in[0] = TIMING * 8
+        try:
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        except DecodeError:
+            if self._lead_in[0] == TIMING * 8:
+                self._lead_in[0] = TIMING * 40
+            else:
+                self._lead_in[0] = TIMING * 8
+
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         d_checksum, f_checksum = self._calc_checksum(code.device, code.function)
 
         if f_checksum != code.f_checksum or d_checksum != code.d_checksum:
-            self._lead_in[0] = TIMING * 40
             raise DecodeError('Checksum failed')
 
-        if self._lead_in[0] == TIMING * 40:
-            raise RepeatLeadOut
+        if len(self._sequence) == 0:
+            if self._lead_in[0] != TIMING * 40:
+                raise DecodeError('Invalid frame')
 
+            self._sequence.append(code)
+            raise RepeatLeadIn
+
+        if self._lead_in[0] != TIMING * 8:
+            del self._sequence[:]
+            raise DecodeError('Invalid frame')
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
+        self._last_code = code
         return code
 
-    def encode(self, device, function):
+    def encode(self, device, function, repeat_count=0):
         d_checksum, f_checksum = self._calc_checksum(
             device,
             function,
@@ -113,10 +132,10 @@ class RCAOld(protocol_base.IrProtocolBase):
 
         self._lead_in[0] = lead_in
 
-        return [packet1, packet2]
+        return [packet1, packet2] * (repeat_count + 1)
 
     def _test_decode(self):
-        rlc =[
+        rlc = [
             [
                 18400, -3680, 460, -1840, 460, -920, 460, -1840, 460, -1840, 460, -1840, 460, -920, 460, -1840,
                 460, -920, 460, -1840, 460, -920, 460, -920, 460, -1840, 460, -920, 460, -1840, 460, -920,

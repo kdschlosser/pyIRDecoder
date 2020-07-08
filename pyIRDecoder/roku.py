@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadIn
 
 
 TIMING = 564
@@ -54,9 +54,9 @@ class Roku(protocol_base.IrProtocolBase):
         ['D', 0, 7],
         ['S', 8, 15],
         ['F', 16, 22],
-        ['C0', 23, 23],
+        ['T', 23, 23],
         ['F_CHECKSUM', 24, 30],
-        ['C1', 31, 31]
+        ['T1', 31, 31]
     ]
     # [D:0..255,S:0..255=255-D,F:0..127]
     encode_parameters = [
@@ -71,39 +71,85 @@ class Roku(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                (
+                    self._last_code.toggle == code.toggle or
+                    (
+                        self._lst_code.toggle == code.t1 and
+                        self._last_code.t1 == code.toggle
+                    )
+                )
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         func_checksum = self._calc_checksum(code.function)
 
-        if func_checksum != code.f_checksum or code.c0 != 0 or code.c1 != 1:
+        if func_checksum != code.f_checksum:
             raise DecodeError('Checksum failed')
+
+        self._last_code = code
+
+        if not code.toggle:
+            raise RepeatLeadIn
 
         return code
 
-    def encode(self, device, sub_device, function):
-        c0 = 0
-        c1 = 1
+    def encode(self, device, sub_device, function, repeat_count=0):
+        toggle1 = 0
+        toggle2 = 1
         func_checksum = self._calc_checksum(function)
 
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(8)),
             list(self._get_timing(sub_device, i) for i in range(8)),
             list(self._get_timing(function, i) for i in range(7)),
-            list(self._get_timing(c0, i) for i in range(1)),
+            list(self._get_timing(toggle1, i) for i in range(1)),
             list(self._get_timing(func_checksum, i) for i in range(7)),
-            list(self._get_timing(c1, i) for i in range(1)),
+            list(self._get_timing(toggle2, i) for i in range(1)),
         )
 
-        return [packet]
+        repeat = self._build_packet(
+            list(self._get_timing(device, i) for i in range(8)),
+            list(self._get_timing(sub_device, i) for i in range(8)),
+            list(self._get_timing(function, i) for i in range(7)),
+            list(self._get_timing(toggle2, i) for i in range(1)),
+            list(self._get_timing(func_checksum, i) for i in range(7)),
+            list(self._get_timing(toggle1, i) for i in range(1)),
+        )
+
+        packet = [packet]
+        packet += [repeat] * (repeat_count + 1)
+
+        return packet
 
     def _test_decode(self):
-        rlc = [[
-            9024, -4512, 564, -1692, 564, -1692, 564, -564, 564, -564, 564, -1692, 564, -564, 
-            564, -564, 564, -564, 564, -1692, 564, -564, 564, -564, 564, -564, 564, -1692, 
-            564, -564, 564, -564, 564, -564, 564, -1692, 564, -564, 564, -564, 564, -1692, 
-            564, -564, 564, -1692, 564, -1692, 564, -564, 564, -564, 564, -1692, 564, -1692, 
-            564, -564, 564, -1692, 564, -564, 564, -564, 564, -1692, 564, -43140, 
-        ]]
+        rlc = [
+            [
+                +9024, -4512, +564, -564, +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -564, +564, -564,
+                +564, -1692, +564, -1692, +564, -1692, +564, -1692, +564, -1692, +564, -564, +564, -564, +564, -1692,
+                +564, -1692, +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -1692,
+                +564, -564, +564, -564, +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -1692, +564, -564,
+                +564, -1692, +564, -38628
+            ],
+            [
+                +9024, -4512, +564, -564, +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -564, +564, -564,
+                +564, -1692, +564, -1692, +564, -1692, +564, -1692, +564, -1692, +564, -564, +564, -564, +564, -1692,
+                +564, -1692, +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -1692,
+                +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -1692, +564, -564, +564, -1692, +564, -564,
+                +564, -564, +564, -38628
+            ]
+        ]
 
-        params = [dict(device=19, function=105, sub_device=17)]
+        params = [
+            None,
+            dict(device=138, function=85, sub_device=207)
+        ]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 

@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import RepeatLeadOut
 
 
 TIMING = 300
@@ -74,6 +74,10 @@ class NovaPace(protocol_base.IrProtocolBase):
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
+
+            if self._last_code == code:
+                self._last_code = None
+                raise RepeatLeadOut
 
         self._last_code = code
         return code

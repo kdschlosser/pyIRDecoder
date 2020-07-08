@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadOut
 
 REMOTE_SUBDEVICE = 0x00
 REMOTE = {
@@ -273,9 +273,26 @@ class Sky(protocol_base.IrProtocolBase):
 
         code._data['F'] |= code.device << 8
 
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                self._last_code.toggle == code.toggle
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
+            if self._last_code == code:
+                self._last_code = None
+                raise RepeatLeadOut
+
+            self._last_code = None
+
+        self._last_code = code
+
         return code
 
-    def encode(self, function):
+    def encode(self, function, repeat_count=0):
         c0 = 1
         mode = 6
 
@@ -285,22 +302,34 @@ class Sky(protocol_base.IrProtocolBase):
         packet = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(mode, i) for i in range(3)),
-            [[-TIMING * 2, TIMING * 2]],
+            [TIMING * 2, -TIMING * 2],
             list(self._get_timing(device, i) for i in range(12)),
             list(self._get_timing(function, i) for i in range(8)),
 
         )
 
-        return [packet]
+        lead_out = self._build_packet(
+            list(self._get_timing(c0, i) for i in range(1)),
+            list(self._get_timing(mode, i) for i in range(3)),
+            [-TIMING * 2, TIMING * 2],
+            list(self._get_timing(device, i) for i in range(12)),
+            list(self._get_timing(function, i) for i in range(8)),
+
+        )
+
+        packet = [packet] * (repeat_count + 1)
+        packet += [lead_out]
+
+        return packet
 
     def _test_decode(self):
-        params = [dict(function=0x5C)]
+        params = [dict(function=0x5C), None]
         function = REMOTE_SUBDEVICE << 8 | 0x5C
         rlc = self.encode(function)
 
-        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
-        params = [dict(function=0xF5)]
+        params = [dict(function=0xF5), None]
         function = KEYBOARD_SUBDEVICE << 8 | 0xF5
         rlc = self.encode(function)
 

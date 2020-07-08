@@ -69,14 +69,22 @@ class Tivo(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
         func_checksum = self._calc_checksum(code.function)
 
         if func_checksum != code.f_checksum or code.device != 133 or code.sub_device != 48:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
-    def encode(self, function, u):
+    def encode(self, function, u, repeat_count=0):
         device = 133
         sub_device = 48
         func_checksum = self._calc_checksum(function)
@@ -89,7 +97,7 @@ class Tivo(protocol_base.IrProtocolBase):
             list(self._get_timing(func_checksum, i) for i in range(4)),
         )
 
-        return [packet]
+        return [packet] * (repeat_count + 1)
 
     def _test_decode(self):
         rlc = [[
