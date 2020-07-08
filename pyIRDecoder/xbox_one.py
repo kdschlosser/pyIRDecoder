@@ -126,8 +126,12 @@ class XBoxOne(protocol_base.IrProtocolBase):
                 code._code.get_value(0, 0) == self._get_bit(code.device, 0)
             ):
                 return self._last_code
-            
+
             self._last_code.repeat_timer.stop()
+            if self._last_code == code:
+                self._last_code = None
+                raise DecodeError('invalid repeat')
+            
             self._last_code = None
 
         func_checksum = self._calc_checksum(code.function)
