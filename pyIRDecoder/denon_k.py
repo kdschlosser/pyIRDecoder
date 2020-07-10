@@ -88,7 +88,7 @@ class DenonK(protocol_base.IrProtocolBase):
         self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function, repeat_count):
+    def encode(self, device, sub_device, function, repeat_count=0):
         c0 = 84
         c1 = 50
         c2 = 0
@@ -104,7 +104,21 @@ class DenonK(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(8))
         )
 
-        return [packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [[

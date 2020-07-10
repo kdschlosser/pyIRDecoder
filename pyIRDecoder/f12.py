@@ -99,7 +99,22 @@ class F12(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(8))
         )
 
-        return [packet, packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:], packet[:]],
+            [packet[:], packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [

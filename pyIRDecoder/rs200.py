@@ -143,7 +143,25 @@ class Rs200(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(4)),
         )
 
-        return [packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+            H1=h1,
+            H2=h2,
+            H3=h3,
+            H4=h4
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

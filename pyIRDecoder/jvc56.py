@@ -54,7 +54,7 @@ class JVC56(protocol_base.IrProtocolBase):
         ['C1', 8, 15],
         ['D', 16, 23],
         ['S', 24, 31],
-        ['X', 32, 39],
+        ['E', 32, 39],
         ['F', 40, 47],
         ['CHECKSUM', 48, 55]
     ]
@@ -63,11 +63,11 @@ class JVC56(protocol_base.IrProtocolBase):
         ['device', 0, 255],
         ['sub_device', 0, 255],
         ['function', 0, 255],
-        ['x', 0, 255]
+        ['extended_function', 0, 255]
     ]
 
-    def _calc_checksum(self, device, sub_device, function, x):
-        return device ^ sub_device ^ function ^ x
+    def _calc_checksum(self, device, sub_device, function, extended_function):
+        return device ^ sub_device ^ function ^ extended_function
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
@@ -78,7 +78,12 @@ class JVC56(protocol_base.IrProtocolBase):
             self._last_code.repeat_timer.stop()
             self._last_code = None
 
-        checksum = self._calc_checksum(code.device, code.sub_device, code.function, code.x)
+        checksum = self._calc_checksum(
+            code.device,
+            code.sub_device,
+            code.function,
+            code.extended_function
+        )
 
         if checksum != code.checksum or code.c0 != 3 or code.c1 != 1:
             raise DecodeError('Checksum failed')
@@ -86,14 +91,14 @@ class JVC56(protocol_base.IrProtocolBase):
         self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function, x, repeat_count=0):
+    def encode(self, device, sub_device, function, extended_function, repeat_count=0):
         c0 = 3
         c1 = 1
         checksum = self._calc_checksum(
             device,
             sub_device,
             function,
-            x
+            extended_function
         )
 
         packet = self._build_packet(
@@ -101,12 +106,28 @@ class JVC56(protocol_base.IrProtocolBase):
             list(self._get_timing(c1, i) for i in range(8)),
             list(self._get_timing(device, i) for i in range(8)),
             list(self._get_timing(sub_device, i) for i in range(8)),
-            list(self._get_timing(x, i) for i in range(8)),
+            list(self._get_timing(extended_function, i) for i in range(8)),
             list(self._get_timing(function, i) for i in range(8)),
             list(self._get_timing(checksum, i) for i in range(8)),
         )
 
-        return [packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+            E=extended_function
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

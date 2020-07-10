@@ -91,7 +91,25 @@ class MCIR2mouse(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(5))
         )
 
-        return [packet]
+        params = dict(
+            frequency=self.frequency,
+            MIDDLE=middle,
+            X=x,
+            Y=y,
+            RIGHT=right,
+            LEFT=left,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]],
+            params,
+            0
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

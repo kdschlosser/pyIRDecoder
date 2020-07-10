@@ -67,7 +67,7 @@ class DirecTV0(protocol_base.IrProtocolBase):
         return self._get_bits(c, 0, 3)
 
     def decode(self, data, frequency=0):
-        if self._last_code is None:
+        if len(self._sequence) == 0:
             self._lead_in[0] = TIMING * 10
         else:
             self._lead_in[0] = TIMING * 5
@@ -85,7 +85,6 @@ class DirecTV0(protocol_base.IrProtocolBase):
         ):
             cleaned_code += self._lead_in[:]
         else:
-            self._last_code = None
             raise DecodeError('Invalid lead in')
 
         lead_out = code[-2:]
@@ -97,14 +96,11 @@ class DirecTV0(protocol_base.IrProtocolBase):
             if self._match(burst, e_burst):
                 lead_out[i] = e_burst
             else:
-                self._last_code = None
                 raise DecodeError('Invalid lead out')
 
         if len(code) > self.bit_count:
-            self._last_code = None
             raise DecodeError('To many bits')
         if len(code) < self.bit_count:
-            self._last_code = None
             raise DecodeError('Not enough bits')
 
         bits = []
@@ -158,22 +154,37 @@ class DirecTV0(protocol_base.IrProtocolBase):
 
             normalized_code += [pulse]
 
-        if self._last_code is None:
-            self._last_code = protocol_base.IRCode(
-                self,
-                original_code,
-                normalized_code,
-                params
-            )
+        code = protocol_base.IRCode(
+            self,
+            original_code,
+            normalized_code,
+            params
+        )
+        if len(self._sequence) == 0:
+            self._sequence.append(code)
             raise RepeatLeadIn
 
-        last = self._last_code
+        if self._last_code is not None:
+            if self._last_code == code:
+                del self._sequence[:]
+                return self._last_code
 
-        if last.device != params['D'] or last.function != params['F']:
-            self._last_code = None
-            raise DecodeError('Code does not match')
+            self._last_code.repeat_timer.stop()
 
-        return last
+        original_rlc = [self._sequence[0].original_rlc[0], original_code]
+        normalized_rlc = [self._sequence[0].normalized_rlc[0], normalized_code]
+
+        del self._sequence[:]
+
+        code = protocol_base.IRCode(
+            self,
+            original_rlc,
+            normalized_rlc,
+            params
+        )
+
+        self._last_code = code
+        return code
 
     def encode(self, device, function, repeat_count=0):
         checksum = self._calc_checksum(function)
@@ -197,7 +208,20 @@ class DirecTV0(protocol_base.IrProtocolBase):
 
         self._lead_in[0] = lead_in
 
-        return [packet1, packet2] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet1[:], packet2[:]],
+            [packet1[:], packet2[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [

@@ -48,8 +48,7 @@ class Timer(object):
         if self.thread is not None:
             self.event.set()
             self.thread.join()
-
-        self.func()
+            self.func()
 
     def start(self):
         self.cancel()
@@ -72,18 +71,12 @@ class Timer(object):
 
 class IRCode(object):
 
-    def __init__(self, decoder, original_rlc, normalized_rlc, data):
+    def __init__(self, decoder, original_rlc, normalized_rlc, data, repeat_count=-1):
         if not isinstance(original_rlc[0], list):
             original_rlc = [original_rlc]
 
         if not isinstance(normalized_rlc[0], list):
             normalized_rlc = [normalized_rlc]
-
-        if decoder.repeat_timeout == 0:
-            tt = sum(abs(item) for item in original_rlc)
-            self._repeat_timer = Timer(self.__repeat_reset, tt + 10)
-        else:
-            self._repeat_timer = Timer(self.__repeat_reset, decoder.repeat_timeout)
 
         self._decoder = decoder
         self._original_rlc = original_rlc
@@ -93,20 +86,40 @@ class IRCode(object):
         self._name = None
         self._name = str(self)
         self._xml = None
-        self.__repeat_callback = None
+        self._callbacks = []
+        self._repeat_count = repeat_count
 
-    def __repeat_reset(self):
-        self.decoder.reset()
-        if self.__repeat_callback is not None:
-            self.__repeat_callback(self)
+        if decoder.repeat_timeout == 0:
+            tt = 0
+            for rlc in original_rlc:
+                tt += sum(abs(item) for item in rlc)
+
+            tt += 10000
+            self._repeat_timer = Timer(self.__repeat_reset, tt)
+        else:
+            self._repeat_timer = Timer(self.__repeat_reset, decoder.repeat_timeout)
+
+    def __iter__(self):
+        for item in self.normalized_rlc:
+            yield item[:]
 
     @property
-    def key_released_callback(self):
-        return self.__repeat_callback
+    def repeat_count(self):
+        return self._repeat_count
 
-    @key_released_callback.setter
-    def key_released_callback(self, value):
-        self.__repeat_callback = value
+    def __repeat_reset(self):
+        for callback in self._callbacks:
+            callback(self)
+
+        self.decoder.reset()
+
+    def bind_released_callback(self, callback):
+        if callback not in self._callbacks:
+            self._callbacks.insert(0, callback)
+
+    def unbind_released_callback(self, callback):
+        if callback in self._callbacks:
+            self._callbacks.remove(callback)
 
     def save(self):
         if self not in self.decoder._saved_codes:
@@ -189,6 +202,9 @@ class IRCode(object):
             'oem1',
             'oem2',
             'device',
+            'device2',
+            'device3',
+            'pair_id',
             'sub_device',
             'extended_function',
             'function',
@@ -360,11 +376,8 @@ class IRCode(object):
 
         else:
             for name, start, stop in self._decoder._parameters:
-                if name.startswith('C'):
+                if name.startswith('T'):
                     continue
-
-                if len(name) == 2:
-                    name = name[:1]
 
                 if name in self._data:
                     bits += _get_bits(self._data[name], start, stop)
@@ -398,10 +411,10 @@ class IRCode(object):
         if isinstance(other, IRCode):
             return (
                 other.decoder == self.decoder and
-                other._data == self._data
+                int(other) == int(self)
             )
-        else:
-            return other == self.normalized_pronto
+
+        return False
 
     def __ne__(self, other):
         return not self.__eq__(other)

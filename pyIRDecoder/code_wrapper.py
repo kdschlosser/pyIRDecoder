@@ -128,24 +128,28 @@ class CodeWrapper(object):
         self._tolerance = tolerance
         self._stream_encoding = 'halfbit'
         self._middle_timings = middle_timings[:]
-        last_pair = bursts[0]
         total_time = sum(abs(item) for item in code[:-1])
         decoded_code = []
         cleaned_code = []
         pairs = []
-        
-        if isinstance(last_pair, int):
-            self._stream_encoding = 'bit'
-        else:
-            for mark, space in bursts[1:]:
-                if (
-                    mark == last_pair[1] and
-                    space == last_pair[0]
-                ):
-                    self._stream_encoding = 'manchester'
-                    break
 
-                last_pair = [mark, space]
+        if bursts:
+            last_pair = bursts[0]
+
+            if isinstance(last_pair, int):
+                self._stream_encoding = 'bit'
+            else:
+                for mark, space in bursts[1:]:
+                    if (
+                        mark == last_pair[1] and
+                        space == last_pair[0]
+                    ):
+                        self._stream_encoding = 'manchester'
+                        break
+
+                    last_pair = [mark, space]
+        else:
+            self._stream_encoding = 'halfbit'
 
         cleaned_lead_out = []
         half_bits = []

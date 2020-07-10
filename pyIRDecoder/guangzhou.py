@@ -149,33 +149,33 @@ class GuangZhou(protocol_base.IrProtocolBase):
         toggle = 3
 
         dev_checksum, func_checksum, toggle_checksum = self._calc_checksum(device, function, toggle)
-
-        lead_out = self._lead_out[:]
-        self._lead_out = list(self._middle_timings[0])
-
-        packet1 = self._build_packet(
+        packet = self._build_packet(
             list(self._get_timing(toggle, i) for i in range(2)),
             list(self._get_timing(device, i) for i in range(6)),
             list(self._get_timing(function, i) for i in range(8)),
-            list(self._get_timing(sub_device, i) for i in range(8))
-        )
-
-        self._lead_out = lead_out[:]
-        lead_in = self._lead_in[:]
-        self._lead_in = []
-
-        packet2 = self._build_packet(
+            list(self._get_timing(sub_device, i) for i in range(8)),
+            self._middle_timings[0],
             list(self._get_timing(toggle_checksum, i) for i in range(2)),
             list(self._get_timing(dev_checksum, i) for i in range(6)),
             list(self._get_timing(func_checksum, i) for i in range(8)),
         )
 
-        self._lead_in = lead_in[:]
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
 
-        tt = sum(abs(item) for item in packet1 + packet2[:-1])
-        packet2[-1] = -(self._lead_out[-1] - tt)
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + self._build_repeat_packet(repeat_count),
+            params,
+            repeat_count
+        )
 
-        return [packet1, packet2] + self._build_repeat_packet(repeat_count)
+        return code
 
     def _test_decode(self):
         rlc = [
@@ -183,12 +183,9 @@ class GuangZhou(protocol_base.IrProtocolBase):
                 +3640, -1820, +546, -1092, +546, -1092, +546, -546, +546, -546, +546, -1092, +546, -546, +546, -1092,
                 +546, -546, +546, -546, +546, -546, +546, -1092, +546, -546, +546, -546, +546, -546, +546, -546, +546,
                 -546, +546, -546, +546, -1092, +546, -1092, +546, -546, +546, -546, +546, -1092, +546, -1092, +546,
-                -546, +3640, -1820
-            ],
-            [
-                +546, -546, +546, -546, +546, -546, +546, -546, +546, -1092, +546, -546, +546, -1092, +546,
-                -546, +546, -1092, +546, -1092, +546, -546, +546, -1092, +546, -1092, +546, -1092, +546, -1092, +546,
-                -1092, +546, -43026
+                -546, +3640, -1820 +546, -546, +546, -546, +546, -546, +546, -546, +546, -1092, +546, -546, +546, -1092,
+                +546, -546, +546, -1092, +546, -1092, +546, -546, +546, -1092, +546, -1092, +546, -1092, +546, -1092,
+                +546, -1092, +546, -43026
             ]
         ]
         params = [

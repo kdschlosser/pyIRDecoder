@@ -156,7 +156,7 @@ class MCE(protocol_base.IrProtocolBase):
         self._last_code = code
         return code
 
-    def encode(self, function, repeat_count):
+    def encode(self, function, repeat_count=0):
         c0 = 1
         mode = 6
         oem1 = OEM1
@@ -164,7 +164,7 @@ class MCE(protocol_base.IrProtocolBase):
         device = MCE_DEVICE
         toggle = 1
 
-        packet = self._build_packet(
+        code = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(mode, i) for i in range(3)),
             self._middle_timings[0],
@@ -188,25 +188,29 @@ class MCE(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(8)),
         )
 
-        packet = [packet] * (repeat_count + 1)
+        packet = [code] * (repeat_count + 1)
         packet += [lead_out]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [code[:], lead_out[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
+        rlc = self.encode(0x0B)
+        params = [dict(function=0x0B)]
 
-        for i in range(0x00, 0x5E + 1):
-            if (
-                0x27 < i < 0x46 or
-                0x50 < i < 0x5A or
-                i in (0x4B, 0x4E, 0x4F)
-            ):
-                continue
-
-            rlc = self.encode(i, 1)
-            params = [dict(function=i, toggle=1)]
-
-            return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
+        return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
         params = dict(function=208, toggle=1)

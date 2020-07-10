@@ -190,7 +190,22 @@ class F121(protocol_base.IrProtocolBase):
         packet2[-1] += self._middle_timings[1]
         packet3[-1] += self._middle_timings[2]
 
-        return [packet1, packet2, packet3, packet4] * (repeat_count + 1)
+        packet = [packet1, packet2, packet3, packet4]
+
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            packet[:],
+            packet[:] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [

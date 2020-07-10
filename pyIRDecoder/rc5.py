@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError, RepeatLeadOut
+from . import RepeatLeadOut
 
 
 TIMING = 889
@@ -59,8 +59,7 @@ class RC5(protocol_base.IrProtocolBase):
     # [D:0..31,F:0..127,T@:0..1=0]
     encode_parameters = [
         ['device', 0, 31],
-        ['function', 0, 127],
-        ['toggle', 0, 1]
+        ['function', 0, 127]
     ]
 
     def decode(self, data, frequency=0):
@@ -82,10 +81,10 @@ class RC5(protocol_base.IrProtocolBase):
             ):
                 return self._last_code
 
+            last_code = self._last_code
             self._last_code.repeat_timer.stop()
 
-            if self._last_code == code:
-                self._last_code = None
+            if last_code == code:
                 raise RepeatLeadOut
 
         self._last_code = code
@@ -113,10 +112,21 @@ class RC5(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(6)),
         )
 
-        packet = [packet] * (repeat_count + 1)
-        packet += [lead_out]
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:], lead_out[:]],
+            ([packet[:]] * (repeat_count + 1)) + [lead_out[:]],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [

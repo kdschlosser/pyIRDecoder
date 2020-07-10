@@ -60,8 +60,7 @@ class RC5x(protocol_base.IrProtocolBase):
     encode_parameters = [
         ['device', 0, 31],
         ['sub_device', 0, 127],
-        ['function', 0, 63],
-        ['toggle', 0, 1]
+        ['function', 0, 63]
     ]
 
     def decode(self, data, frequency=0):
@@ -79,15 +78,15 @@ class RC5x(protocol_base.IrProtocolBase):
 
         if self._last_code is not None:
             if (
-                    self._last_code == code and
-                    self._last_code.toggle == code.toggle
+                self._last_code == code and
+                self._last_code.toggle == code.toggle
             ):
                 return self._last_code
 
+            last_code = self._last_code
             self._last_code.repeat_timer.stop()
 
-            if self._last_code == code:
-                self._last_code = None
+            if last_code == code:
                 raise RepeatLeadOut
 
         self._last_code = code
@@ -116,10 +115,23 @@ class RC5x(protocol_base.IrProtocolBase):
             list(self._get_timing(sub_device, i) for i in range(6)),
             list(self._get_timing(function, i) for i in range(6)),
         )
-        packet = [packet] * (repeat_count + 1)
-        packet += [lead_out]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:], lead_out[:]],
+            ([packet[:]] * (repeat_count + 1)) + [lead_out[:]],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

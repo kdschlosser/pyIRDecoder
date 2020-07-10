@@ -167,7 +167,21 @@ class Nokia12(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(0, 8, 2))
         )
 
-        return [packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

@@ -87,17 +87,30 @@ class IrProtocolBase(object):
         self._frequency_tolerance = 2
         self._saved_codes = []
         self._sequence = []
+        self._parent = None
+
+        self._lead_in = self._lead_in[:]
+        self._lead_out = self._lead_out[:]
+        self._bursts = self._bursts[:]
+        self._repeat_lead_in = self._repeat_lead_in[:]
+        self._repeat_lead_out = self._repeat_lead_out[:]
+        self._middle_timings = self._middle_timings[:]
+        self._repeat_bursts = self._repeat_bursts[:]
+
+        self._parameters = self._parameters[:]
+        self.encode_parameters = self.encode_parameters[:]
+        self.repeat_timeout = self.repeat_timeout
 
         if self.repeat_timeout == 0:
             if self._repeat_lead_out and self._repeat_lead_out[-1] > 0:
-                self.repeat_timeout = self._repeat_lead_out[-1] + 10
+                self.repeat_timeout = self._repeat_lead_out[-1] + 10000
 
             elif not self._repeat_bursts and (self._repeat_lead_in or self._repeat_lead_out):
                 tt = sum(abs(item) for item in self._repeat_lead_in[:] + self._repeat_lead_out[:])
-                self.repeat_timeout = tt + 10
+                self.repeat_timeout = tt + 10000
 
             elif self._lead_out and self._lead_out[-1] > 0:
-                self.repeat_timeout = self._lead_out[-1] + 10
+                self.repeat_timeout = self._lead_out[-1] + 10000
 
         if xml is not None:
             self._enabled = xml.enabled
@@ -201,8 +214,10 @@ class IrProtocolBase(object):
 
         return []
 
-    def __call__(self):
-        return self.__class__()
+    def __call__(self, parent, xml=None):
+        cls = self.__class__(xml)
+        cls._parent = parent
+        return cls
 
     @property
     def enabled(self):
@@ -233,7 +248,7 @@ class IrProtocolBase(object):
         return self.__class__.__name__
 
     def reset(self):
-        pass
+        self._last_code = None
 
     def _test_decode(self, rlc=None, params=None):
         print(self.__class__.__name__, 'decode test.....')
@@ -392,12 +407,13 @@ class IrProtocolBase(object):
                         params[name] = code.get_value(start, stop)
 
                     c = IRCode(self, code.original_code, list(code), params)
+                    c._code = code
+
                     if c == self._last_code:
                         self._last_code._code = code
                         return self._last_code
                     else:
                         self._last_code.repeat_timer.stop()
-                        self._last_code = None
                         raise DecodeError
 
                 self._last_code._code = code

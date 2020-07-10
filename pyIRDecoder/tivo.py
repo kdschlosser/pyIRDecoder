@@ -63,6 +63,11 @@ class Tivo(protocol_base.IrProtocolBase):
         ['u', 0, 15]
     ]
 
+    def __init__(self, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, xml)
+        if xml is None:
+            self._enabled = False
+
     def _calc_checksum(self, function):
         f = self._invert_bits(self._get_bits(function, 4, 7), 4)
         return self._get_bits(f, 0, 3)
@@ -97,7 +102,21 @@ class Tivo(protocol_base.IrProtocolBase):
             list(self._get_timing(func_checksum, i) for i in range(4)),
         )
 
-        return [packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            U=u,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

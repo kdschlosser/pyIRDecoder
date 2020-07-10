@@ -191,7 +191,7 @@ from .thomson import Thomson  # NOQA
 from .thomson7 import Thomson7  # NOQA
 from .tivo import Tivo  # NOQA
 from .universal import Universal  # NOQA
-# velleman
+from .velleman import Velleman  # NOQA
 from .viewstar import Viewstar  # NOQA
 # whynter
 # x10
@@ -218,7 +218,6 @@ _DECODERS = [
     Archer,
     Arctech,
     Arctech38,
-    Audiovox,
     Barco,
     Blaupunkt,
     Bose,
@@ -247,8 +246,8 @@ _DECODERS = [
     Emerson,
     Entone,
     F12,
-    F120,
     F121,
+    F120,
     F32,
     Fujitsu,
     Fujitsu128,
@@ -308,6 +307,7 @@ _DECODERS = [
     Pioneer,
     Proton,
     Proton40,
+    Audiovox,
     RC5,
     RC6,
     RC6624,
@@ -355,6 +355,7 @@ _DECODERS = [
     Thomson,
     Thomson7,
     Tivo,
+    Velleman,
     Viewstar,
     XBox360,
     XBoxOne,
@@ -378,6 +379,7 @@ class IRDecoder(object):
 
         self.__config = config
         self.__decoders = deque()
+        self.__last_code = None
 
         for i, decoder in enumerate(_DECODERS):
             for decoder_xml in self.__config:
@@ -423,6 +425,11 @@ class IRDecoder(object):
     def last_used_decoder(self):
         return self.__last_decoder
 
+    def __reset_last_code(self, code):
+        code.unbind_released_callback(self.__reset_last_code)
+        if code.decoder == self.__last_decoder:
+            self.__last_code = None
+
     def decode(self, data, frequency=0):
         if isinstance(data, protocol_base.IRCode):
             raise DecodeError('Input to be decoded must be RLC')
@@ -442,6 +449,25 @@ class IRDecoder(object):
         #             continue
         #         return
 
+        if self.__last_code is not None:
+            if self.__last_code.decoder.frequency_match(frequency):
+                if len(data) == 1 and self.__last_code == data[0]:
+                    self.__last_code.repeat_timer.start()
+                    return self.__last_code
+
+                for rlc in data:
+                    try:
+                        code = self.__last_code.decoder.decode(rlc, frequency)
+                        code.repeat_timer.start()
+                        return code
+                    except DecodeError:
+                        break
+                    except RepeatLeadOut:
+                        return None
+                    except RepeatLeadIn:
+                        if len(data) == 1:
+                            return None
+
         code = None
 
         for i, decoder in enumerate(self.__decoders):
@@ -458,6 +484,9 @@ class IRDecoder(object):
                         break
                 else:
                     code = None
+
+                if code is not None:
+                    break
 
                 try:
                     code = decoder.decode(rlc, frequency)
@@ -483,12 +512,15 @@ class IRDecoder(object):
                 return None
 
             decoder = self.Universal
-            code = decoder.decode(rlc, frequency)
+            try:
+                code = decoder.decode(rlc, frequency)
+            except DecodeError:
+                return None
 
         self.__last_decoder = code.decoder
-
-        if code.decoder.repeat_timeout > 0:
-            code.repeat_timer.start()
+        code.bind_released_callback(self.__reset_last_code)
+        code.repeat_timer.start()
+        self.__last_code = code
 
         return code
 
@@ -1144,6 +1176,10 @@ class IRDecoder(object):
     @property
     def Tivo(self):
         return self.__get_decoder(Tivo)
+
+    @property
+    def Velleman(self):
+        return self.__get_decoder(Velleman)
 
     @property
     def Viewstar(self):

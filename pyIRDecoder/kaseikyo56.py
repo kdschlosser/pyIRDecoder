@@ -101,7 +101,39 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
         self._last_code = code
         return code
 
-    def encode(self, oem1, oem2, device, sub_device, function, extended_function, g, repeat_count):
+    def encode(
+        self,
+        oem1,
+        oem2,
+        device,
+        sub_device,
+        function,
+        extended_function,
+        g,
+        repeat_count=0
+    ):
+
+        if oem1 == 3 and oem2 == 1:
+            from . import jvc56
+            return jvc56.JVC56.encod(
+                device,
+                sub_device,
+                function,
+                extended_function,
+                repeat_count
+            )
+
+        if oem1 == 20 and oem2 == 99:
+            from . import fujitsu56
+            return fujitsu56.Fujitsu56.encode(
+                device,
+                sub_device,
+                function,
+                extended_function,
+                g,
+                repeat_count
+            )
+
         h = self._calc_checksum(oem1, oem2)
 
         packet = self._build_packet(
@@ -115,7 +147,26 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
             list(self._get_timing(g, i) for i in range(8))
         )
 
-        return [packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            OEM1=oem1,
+            OEM2=oem2,
+            D=device,
+            S=sub_device,
+            F=function,
+            E=extended_function,
+            G=g
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

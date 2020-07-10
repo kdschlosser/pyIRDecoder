@@ -27,6 +27,7 @@
 
 from . import protocol_base
 from . import utils
+from . import DecodeError
 
 
 class Universal(protocol_base.IrProtocolBase):
@@ -263,6 +264,9 @@ class Universal(protocol_base.IrProtocolBase):
         return code
 
     def decode(self, data, frequency=0):
+
+        if len(data) <= 6:
+            raise DecodeError('code not long enough')
         norm_data = utils.clean_code(data[:], self.tolerance)
         norm_data = utils.build_mce_rlc(norm_data)
 

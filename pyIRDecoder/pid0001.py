@@ -62,10 +62,7 @@ class PID0001(protocol_base.IrProtocolBase):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         if self._last_code is not None:
-            if (
-                self._last_code == code and
-                code._code.get_value(0, 4) == self._last_code.fuction
-            ):
+            if self._last_code == code:
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
@@ -74,11 +71,9 @@ class PID0001(protocol_base.IrProtocolBase):
         return code
 
     def encode(self, function, repeat_count=0):
-        packet = [
-            self._build_packet(
-                list(self._get_timing(function, i) for i in range(5))
-            )
-        ]
+        packet = self._build_packet(
+            list(self._get_timing(function, i) for i in range(5))
+        )
 
         lead_in = self._lead_in[:]
         del self._lead_in[:]
@@ -88,9 +83,21 @@ class PID0001(protocol_base.IrProtocolBase):
         )
 
         self._lead_in = lead_in[:]
-        packet += [repeat] * repeat_count
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + ([repeat[:]] * repeat_count),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

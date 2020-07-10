@@ -28,6 +28,7 @@ from __future__ import print_function
 import random
 import pyIRDecoder
 import time
+import threading
 
 
 ir_decoder = pyIRDecoder.IRDecoder()
@@ -41,7 +42,19 @@ class TestBase(object):
     decoder = None
 
     @classmethod
+    def is_enabled(cls):
+        return cls.encoder.enabled
+
+    @classmethod
+    def enable(cls, value):
+        cls.decoder.enabled = value
+
+    @classmethod
     def test(cls):
+        if not cls.is_enabled():
+            print('skipping', cls.__name__)
+            return
+
         print('encoding', cls.__name__)
 
         params = {}
@@ -61,17 +74,43 @@ class TestBase(object):
         rlc = cls.encoder.encode(**params)
 
         stop = time.time()
-        print(rlc)
-        print('encoding time:', (stop - start) * 1000, 'ms')
+        print('ir code')
+        for item in rlc:
+            print('   ', item)
+        print('single code encoding time:', (stop - start) * 1000, 'ms')
         print()
 
         print('decoding', cls.__name__)
 
+        wait_event = threading.Event()
+
+        def key_released_callback(cde):
+            print(cde, ' key released released')
+            wait_event.set()
+
+        rlc = cls.encoder.encode(repeat_count=3, **params)
+        print(rlc)
+
         start = time.time()
 
-        code = ir_decoder.decode(rlc, cls.decoder.frequency)
+        code = None
+        for c in rlc:
+            c = ir_decoder.decode(c, cls.decoder.frequency)
+            if c is None:
+                continue
 
-        print(cls.decoder, code.decoder.__class__)
+            code = c
+            code.bind_released_callback(key_released_callback)
+
+            print('decoded friendly', code)
+            print('decoded hexdecimal', code.hexdecimal)
+
+        stop = time.time()
+
+        wait_event.wait(10)
+
+        if not wait_event.is_set():
+            raise RuntimeError('repeat timeout problem')
 
         if code.decoder == ir_decoder.Universal:
             raise RuntimeError
@@ -85,10 +124,7 @@ class TestBase(object):
                 raise ValueError(key + ', ' + str(val) + ', ' + str(v))
 
         print('success', code)
-        print('decoded friendly', code)
-        print('decoded hexdecimal', code.hexdecimal)
 
-        stop = time.time()
         decoding_times.append((stop - start) * 1000)
         print('decoding time:', (stop - start) * 1000, 'ms')
         print()
@@ -875,6 +911,11 @@ class Tivo(TestBase):
     encoder = ir_encoder.Tivo
 
 
+class Velleman(TestBase):
+    decoder = ir_decoder.Velleman
+    encoder = ir_encoder.Velleman
+
+
 class Viewstar(TestBase):
     decoder = ir_decoder.Viewstar
     encoder = ir_encoder.Viewstar
@@ -904,7 +945,6 @@ if __name__ == '__main__':
     Arctech38.test()
     Audiovox.test()
     Barco.test()
-    Blaupunkt.test()
     Bose.test()
     Bryston.test()
     CanalSat.test()
@@ -970,7 +1010,6 @@ if __name__ == '__main__':
     NEC.test()
     NEC48.test()
     NECf16.test()
-    NECrnc.test()
     NECx.test()
     NECxf16.test()
     Nokia.test()
@@ -1042,22 +1081,34 @@ if __name__ == '__main__':
     TDC56.test()
     TeacK.test()
     Thomson.test()
+    Velleman.test()
     Viewstar.test()
     XBox360.test()
     XBoxOne.test()
     # Rs200.test()
 
-    ir_decoder.RC57F.enabled = False
+    RC57F.enable(False)
+    StreamZap.enable(True)
     StreamZap.test()
 
-    ir_decoder.RC57F57.enabled = False
+    RC57F57.enable(False)
+    StreamZap57.enable(True)
     StreamZap57.test()
 
-    ir_decoder.Thomson.enabled = False
+    Thomson.enable(False)
+    Thomson7.enable(True)
     Thomson7.test()
 
-    ir_decoder.NEC.enabled = False
-    ir_decoder.NECf16.enabled = False
+    NEC.enable(False)
+    NECrnc.enable(True)
+    NECrnc.test()
+
+    NEC.enable(False)
+    NECf16.enable(False)
+    Tivo.enable(True)
     Tivo.test()
+
+    Blaupunkt.enable(True)
+    Blaupunkt.test()
 
     print('average decoding time:', sum(decoding_times) / float(len(decoding_times)), 'ms')

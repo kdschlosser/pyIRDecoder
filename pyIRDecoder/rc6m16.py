@@ -105,10 +105,22 @@ class RC6M16(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(8)),
         )
 
-        packet = [packet] * (repeat_count + 1)
-        packet += [lead_out]
+        params = dict(
+            frequency=self.frequency,
+            M=mode,
+            D=device,
+            F=function,
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:], lead_out[:]],
+            ([packet[:]] * (repeat_count + 1)) + [lead_out[:]],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

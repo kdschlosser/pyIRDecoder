@@ -124,14 +124,26 @@ class Fujitsu128(protocol_base.IrProtocolBase):
         repeat_count=0
     ):
         items = [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15]
+        params = dict(
+            frequency=self.frequency
+        )
 
         for i, item in enumerate(items):
-            encoded = list(self._get_timing(item, i) for i in range(8))
+            params['A' + str(i)] = item
+            encoded = list(self._get_timing(item, j) for j in range(8))
             items[i] = encoded
 
         packet = self._build_packet(*items)
 
-        return [packet] * (repeat_count + 1)
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

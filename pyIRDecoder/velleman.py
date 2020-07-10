@@ -86,7 +86,7 @@ class Velleman(protocol_base.IrProtocolBase):
         c0 = 1
         toggle = 0
 
-        packet = self._build_packet(
+        code = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(toggle, i) for i in range(1)),
             list(self._get_timing(device, i) for i in range(3)),
@@ -102,10 +102,24 @@ class Velleman(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(5)),
         )
 
-        packet = [packet] * (repeat_count + 1)
+        packet = [code] * (repeat_count + 1)
         packet += [lead_out]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [code[:], lead_out[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [

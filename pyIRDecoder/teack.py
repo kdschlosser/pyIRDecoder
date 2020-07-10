@@ -57,7 +57,7 @@ class TeacK(protocol_base.IrProtocolBase):
     _parameters = [
         ['C0', 0, 7],
         ['C1', 8, 15],
-        ['X', 16, 19],
+        ['E', 16, 19],
         ['D', 20, 23],
         ['S', 24, 31],
         ['F', 32, 39],
@@ -68,7 +68,7 @@ class TeacK(protocol_base.IrProtocolBase):
         ['device', 0, 15],
         ['sub_device', 0, 255],
         ['function', 0, 255],
-        ['x', 0, 15]
+        ['extended_function', 0, 15]
     ]
 
     def _calc_checksum(self, device, sub_device, function):
@@ -95,7 +95,7 @@ class TeacK(protocol_base.IrProtocolBase):
         self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function, x, repeat_count=0):
+    def encode(self, device, sub_device, function, extended_function, repeat_count=0):
         c0 = 67
         c1 = 83
 
@@ -108,14 +108,30 @@ class TeacK(protocol_base.IrProtocolBase):
         packet = self._build_packet(
             list(self._get_timing(c0, i) for i in range(8)),
             list(self._get_timing(c1, i) for i in range(8)),
-            list(self._get_timing(x, i) for i in range(4)),
+            list(self._get_timing(extended_function, i) for i in range(4)),
             list(self._get_timing(device, i) for i in range(4)),
             list(self._get_timing(sub_device, i) for i in range(8)),
             list(self._get_timing(function, i) for i in range(8)),
             list(self._get_timing(checksum, i) for i in range(8)),
         )
 
-        return [packet] + self._build_repeat_packet(repeat_count)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+            E=extended_function
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + self._build_repeat_packet(repeat_count),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[
@@ -129,12 +145,12 @@ class TeacK(protocol_base.IrProtocolBase):
             432, -43200, 
         ]]
 
-        params = [dict(function=51, sub_device=159, device=12, x=11)]
+        params = [dict(function=51, sub_device=159, device=12, extended_function=11)]
 
         return protocol_base.IrProtocolBase._test_decode(self, rlc, params)
 
     def _test_encode(self):
-        params = dict(function=51, sub_device=159, device=12, x=11)
+        params = dict(function=51, sub_device=159, device=12, extended_function=11)
         protocol_base.IrProtocolBase._test_encode(self, params)
 
 

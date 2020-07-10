@@ -46,7 +46,7 @@ class NECxf16(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = [TIMING * 8, -TIMING * 4]
+    _repeat_lead_in = [TIMING * 8, -TIMING * 8]
     _repeat_lead_out = [TIMING, 108000]
     _repeat_bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
@@ -68,10 +68,7 @@ class NECxf16(protocol_base.IrProtocolBase):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         if self._last_code is not None:
-            if (
-                    self._last_code == code and
-                    self._last_code._code.get_value(0, 0) == self._get_bit(self._last_code.device, 0)
-            ):
+            if self._last_code == code:
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
@@ -81,22 +78,34 @@ class NECxf16(protocol_base.IrProtocolBase):
         return code
 
     def encode(self, device, sub_device, function, extended_function, repeat_count=0):
-        packet = [
-            self._build_packet(
-                list(self._get_timing(device, i) for i in range(8)),
-                list(self._get_timing(sub_device, i) for i in range(8)),
-                list(self._get_timing(function, i) for i in range(8)),
-                list(self._get_timing(extended_function, i) for i in range(8)),
-            )
-        ]
+        packet = self._build_packet(
+            list(self._get_timing(device, i) for i in range(8)),
+            list(self._get_timing(sub_device, i) for i in range(8)),
+            list(self._get_timing(function, i) for i in range(8)),
+            list(self._get_timing(extended_function, i) for i in range(8)),
+        )
 
         repeat = self._build_packet(
             list(self._get_timing(device, i) for i in range(1))
         )
 
-        packet += [repeat] * repeat_count
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+            E=extended_function
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + ([repeat[:]] * repeat_count),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

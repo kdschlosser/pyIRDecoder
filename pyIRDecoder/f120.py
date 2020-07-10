@@ -64,97 +64,67 @@ class F120(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
+        self._middle_timings = [-TIMING * 34]
+        del self._lead_out[:]
+        self.bit_count = 24
+
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-            if self._last_code is not None:
-                if self._last_code == code:
-                    return self._last_code
-
-                self._last_code.repeat_timer.stop()
-                self._last_code = None
-
-            if (
-                code.device != code.d1 or
-                code.h != 0 != code.h1 or
-                code.function != code.f1
-            ):
-                raise DecodeError('Invalid checksum')
-
-            self._last_code = code
-
-            return code
-
         except DecodeError:
-            if self._sequence:
+            self.bit_count = 12
+            if len(self._sequence) == 1:
+                del self._lead_out[:]
+                del self._middle_timings[:]
+
                 try:
-                    code = protocol_base.code_wrapper.CodeWrapper(
-                        self.encoding,
-                        self._lead_in[:],
-                        self._lead_out[:],
-                        [],
-                        self._bursts[:],
-                        self.tolerance,
-                        data[:]
-                    )
-
-                    if code.num_bits > self.bit_count / 2:
-                        raise DecodeError('To many bits')
-                    elif code.num_bits < self.bit_count / 2:
-                        raise DecodeError('Not enough bits')
-
+                    code = protocol_base.IrProtocolBase.decode(self, data, frequency)
                 except DecodeError:
                     del self._sequence[:]
                     raise
 
-                params = dict(frequency=self.frequency)
-                for name, start, stop in self._parameters[:3]:
-                    params[name] = code.get_value(start, stop)
+                original_rlc = self._sequence[0].original_rlc[0] + code.original_rlc[0]
+                normalized_rlc = self._sequence[0].normalized_rlc[0] + code.normalized_rlc[0]
+                params = dict(
+                    D=self._sequence[0].device,
+                    F=self._sequence[0].function,
+                    H=self._sequence[0].h,
+                    D1=code.device,
+                    F1=code.function,
+                    H1=code.h,
+                    frequency=self.frequency
+                )
 
-                if params == self._sequence[0]:
-                    del self._sequence[0]['frequency']
-                    for k, v in self._sequence[0].items():
-                        params[k + '1'] = v
-                else:
-                    del self._sequence[:]
-                    raise DecodeError('invalid frame')
+                code = protocol_base.IRCode(
+                    self,
+                    original_rlc,
+                    normalized_rlc,
+                    params
+                )
 
                 del self._sequence[:]
 
-                code = protocol_base.IRCode(self, code.original_code, list(code), params)
-
-                if self._last_code is not None:
-                    if self._last_code == code:
-                        return self._last_code
-
-                    self._last_code.repeat_timer.stop()
-
-                self._last_code = code
-                return code
             else:
-                code = protocol_base.code_wrapper.CodeWrapper(
-                    self.encoding,
-                    self._lead_in[:],
-                    self._lead_out[:],
-                    [],
-                    self._bursts[:],
-                    self.tolerance,
-                    data[:]
-                )
-
-                if code.num_bits > self.bit_count / 2:
-                    raise DecodeError('To many bits')
-                elif code.num_bits < self.bit_count / 2:
-                    raise DecodeError('Not enough bits')
-
-                params = dict(frequency=self.frequency)
-                for name, start, stop in self._parameters[:3]:
-                    params[name] = code.get_value(start, stop)
-
-                if params['H'] != 0:
-                    raise DecodeError('Invalid checksum')
-
-                self._sequence.append(params)
+                self._lead_out = [self._middle_timings.pop(0)]
+                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+                self._sequence.append(code)
                 raise RepeatLeadIn
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
+
+        if (
+            code.device != code.d1 or
+            code.h != 0 != code.h1 or
+            code.function != code.f1
+        ):
+            raise DecodeError('Invalid checksum')
+
+        self._last_code = code
+        return code
 
     def encode(self, device, function, repeat_count=0):
         h = 0
@@ -168,7 +138,21 @@ class F120(protocol_base.IrProtocolBase):
 
         packet1[-1] += self._middle_timings[0]
 
-        return [packet1, packet2] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet1[:], packet2[:]],
+            [packet1[:], packet2[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [

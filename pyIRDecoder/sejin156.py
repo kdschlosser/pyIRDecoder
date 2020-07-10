@@ -92,6 +92,7 @@ class Sejin156(protocol_base.IrProtocolBase):
         return code
 
     def encode(self, device, sub_device, function, extended_function):
+        raise NotImplementedError
         func_checksum, ex_func_checksum = self._calc_checksum(
             function,
             extended_function

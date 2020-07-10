@@ -46,9 +46,13 @@ class Dyson(protocol_base.IrProtocolBase):
     _middle_timings = [(TIMING, -100000), (TIMING * 3, -TIMING)]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 2]]
 
+    _backup_middle_timings = _middle_timings[:]
+
     _repeat_lead_in = [TIMING * 3, -TIMING]
     _repeat_lead_out = [TIMING, -60000]
     _repeat_bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
+
+    repeat_timeout = (TIMING * 9) + 70000
 
     _parameters = [
         ['D', 0, 6],
@@ -66,98 +70,68 @@ class Dyson(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
+        if len(self._sequence) == 1:
+            self._lead_out[1] = -60000
+            del self._middle_timings[:]
+
+        elif self._last_code is None:
+            self._lead_out[1] = -60000
+            self._middle_timings = self._backup_middle_timings[:]
+
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-            if isinstance(self._last_code, protocol_base.IRCode):
-                if self._last_code == code:
-                    if self._last_code._code.get_bits(0, 0) != 1:
-                        self._last_code.repeat_timer.start()
-                        raise RepeatLeadIn
+        except DecodeError:
+            if len(self._sequence) == 0:
+                self._lead_out = list(self._backup_middle_timings[0])
+                del self._middle_timings[:]
+                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+            else:
+                raise
 
-                    return self._last_code
-                else:
-                    self._last_code.repeat_timer.stop()
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
 
-            if code.device != code.d2 or code.function != code.f2:
-                self._last_code = None
-                raise DecodeError('Checksum failed')
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
 
+        if self._middle_timings:
+            self._last_code = code
+            return code
+
+        if len(self._sequence) == 1:
+            original_rlc = self._sequence[0].original_rlc[0] + code.original_rlc[0]
+            normalized_rlc = self._sequence[0].normalized_rlc[0] + code.normalized_rlc[0]
             params = dict(
-                D=code.device,
-                F=code.function,
-                T=self._reverse_bits(code.toggle, 2),
+                D=self._sequence[0].device,
+                F=self._sequence[0].function,
+                T=self._sequence[0].toggle,
+                D1=code.device,
+                F1=code.function,
+                T1=code.toggle,
                 frequency=self.frequency
             )
 
             code = protocol_base.IRCode(
                 self,
-                code.original_rlc,
-                code.normalized_rlc,
+                original_rlc,
+                normalized_rlc,
                 params
             )
+
+            del self._sequence[:]
+
+            if code.device != code.d2 or code.function != code.f2:
+                raise DecodeError('Checksum failed')
 
             self._last_code = code
             return code
 
-        except DecodeError:
-            if isinstance(self._last_code, dict):
-                try:
-                    code = protocol_base.code_wrapper.CodeWrapper(
-                        self.encoding,
-                        self._lead_in[:],
-                        self._lead_out[:],
-                        [],
-                        self._bursts[:],
-                        self.tolerance,
-                        data[:]
-                    )
-                except DecodeError:
-                    self._last_code = None
-                    raise
-
-                params = dict(
-                    frequency=self.frequency
-                )
-
-                for key, start, stop in self._parameters[:3]:
-                    params[key] = code.get_value(start, stop)
-
-                if self._last_code == params:
-                    params['T'] = self._reverse_bits(params['T'], 2)
-                    code = protocol_base.IRCode(
-                        self,
-                        code.original_code,
-                        list(code),
-                        params
-                    )
-                    self._last_code = code
-                    return code
-                else:
-                    self._last_code = None
-                    raise DecodeError('Invalid frame')
-
-            code = protocol_base.code_wrapper.CodeWrapper(
-                self.encoding,
-                self._lead_in[:],
-                list(self._middle_timings[0]),
-                [],
-                self._bursts[:],
-                self.tolerance,
-                data[:]
-            )
-
-            params = dict(
-                frequency=self.frequency
-            )
-
-            for key, start, stop in self._parameters[:3]:
-                params[key] = code.get_value(start, stop)
-
-            self._last_code = params
-            raise RepeatLeadIn
+        self._sequence.append(code)
+        raise RepeatLeadIn
 
     def encode(self, device, function, toggle, repeat_count=0):
-        toggle = self._reverse_bits(toggle, 2)
+        # toggle = self._reverse_bits(toggle, 2)
 
         packet = [
             self._build_packet(
@@ -171,10 +145,24 @@ class Dyson(protocol_base.IrProtocolBase):
             )
         ]
 
-        repeat = self._repeat_lead_in[:] + self._repeat_bursts[1] + self._repeat_lead_out
-        packet += [repeat] * repeat_count
+        repeat = self._repeat_lead_in[:] + self._repeat_bursts[1][:] + self._repeat_lead_out[:]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+            T=toggle
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            packet[:],
+            packet[:] + ([repeat] * repeat_count),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [

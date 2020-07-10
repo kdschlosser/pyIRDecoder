@@ -80,10 +80,10 @@ class RC57F(protocol_base.IrProtocolBase):
             ):
                 return self._last_code
 
+            last_code = self._last_code
             self._last_code.repeat_timer.stop()
 
-            if self._last_code == code:
-                self._last_code = None
+            if last_code == code:
                 raise RepeatLeadOut
 
         self._last_code = code
@@ -109,10 +109,21 @@ class RC57F(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(7))
         )
 
-        packet = [packet] * (repeat_count + 1)
-        packet += [lead_out]
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:], lead_out[:]],
+            ([packet[:]] * (repeat_count + 1)) + [lead_out[:]],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

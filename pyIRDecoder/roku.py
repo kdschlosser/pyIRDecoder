@@ -65,6 +65,11 @@ class Roku(protocol_base.IrProtocolBase):
         ['function', 0, 127],
     ]
 
+    def __init__(self, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, xml)
+        if xml is None:
+            self._enabled = False
+
     def _calc_checksum(self, function):
         f = self._invert_bits(function, 7)
         return f
@@ -105,7 +110,7 @@ class Roku(protocol_base.IrProtocolBase):
         toggle2 = 1
         func_checksum = self._calc_checksum(function)
 
-        packet = self._build_packet(
+        code = self._build_packet(
             list(self._get_timing(device, i) for i in range(8)),
             list(self._get_timing(sub_device, i) for i in range(8)),
             list(self._get_timing(function, i) for i in range(7)),
@@ -123,10 +128,25 @@ class Roku(protocol_base.IrProtocolBase):
             list(self._get_timing(toggle1, i) for i in range(1)),
         )
 
-        packet = [packet]
+        packet = [code]
         packet += [repeat] * (repeat_count + 1)
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [code[:], repeat[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [

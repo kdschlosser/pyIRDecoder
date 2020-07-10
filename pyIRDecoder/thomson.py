@@ -70,7 +70,8 @@ class Thomson(protocol_base.IrProtocolBase):
             D=self._set_bit(code.device, 4, self._get_bit(code.d1, 0)),
             F=code.function,
             CHECKSUM=code.checksum,
-            T=code.toggle
+            T=code.toggle,
+            frequency=self.frequency
         )
 
         code = protocol_base.IRCode(self, code.original_rlc, code.normalized_rlc, params)
@@ -94,7 +95,7 @@ class Thomson(protocol_base.IrProtocolBase):
 
         toggle = 0
 
-        packet = self._build_packet(
+        code = self._build_packet(
             list(self._get_timing(device, i) for i in range(4)),
             list(self._get_timing(toggle, i) for i in range(1)),
             list(self._get_timing(d1, i) for i in range(1)),
@@ -108,10 +109,24 @@ class Thomson(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(6))
         )
 
-        packet = [packet] * (repeat_count + 1)
+        packet = [code] * (repeat_count + 1)
         packet += [lead_out]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [code[:], lead_out[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

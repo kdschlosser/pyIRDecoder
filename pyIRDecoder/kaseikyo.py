@@ -120,7 +120,39 @@ class Kaseikyo(protocol_base.IrProtocolBase):
         self._last_code = code
         return code
 
-    def encode(self, oem1, oem2, device, sub_device, function, extended_function, repeat_count=0):
+    def encode(
+        self,
+        oem1,
+        oem2,
+        device,
+        sub_device,
+        function,
+        extended_function,
+        repeat_count=0
+    ):
+
+        if oem1 == 3 and oem2 == 1:
+            from . import jvc48
+            return jvc48.JVC48.encode(device, sub_device, function, repeat_count)
+        if oem1 == 35 and oem2 == 203:
+            from . import mitsubishik
+            return mitsubishik.MitsubishiK.encode(device, sub_device, function, repeat_count)
+        if oem1 == 2 and oem2 == 32:
+            from . import panasonic
+            return panasonic.Panasonic.encode(device, sub_device, function, repeat_count)
+        if oem1 == 170 and oem2 == 90:
+            from . import sharpdvd
+            return sharpdvd.SharpDVD.encode(device, sub_device, function, repeat_count)
+        if oem1 == 67 and oem2 == 83:
+            from . import teack
+            return teack.TeacK.encode(device, sub_device, function, repeat_count)
+        if oem1 == 84 and oem2 == 50:
+            from . import denon_k
+            return denon_k.DenonK.encode(device, sub_device, function, repeat_count)
+        if oem1 == 20 and oem2 == 99:
+            from . import fujitsu
+            return fujitsu.Fujitsu.encode(device, sub_device, function, repeat_count)
+
         x, checksum = self._calc_checksum(
             oem1, oem2, device, sub_device, function, extended_function
         )
@@ -136,7 +168,25 @@ class Kaseikyo(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(4))
         )
 
-        return [packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            OEM1=oem1,
+            OEM2=oem2,
+            D=device,
+            S=sub_device,
+            F=function,
+            E=extended_function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

@@ -131,7 +131,7 @@ class XBoxOne(protocol_base.IrProtocolBase):
             if self._last_code == code:
                 self._last_code = None
                 raise DecodeError('invalid repeat')
-            
+
             self._last_code = None
 
         func_checksum = self._calc_checksum(code.function)
@@ -153,20 +153,34 @@ class XBoxOne(protocol_base.IrProtocolBase):
         sub_device = XBOX_ONE_SUBDEVICE
         func_checksum = self._calc_checksum(function)
 
-        packet = [
-            self._build_packet(
-                list(self._get_timing(device, i) for i in range(8)),
-                list(self._get_timing(sub_device, i) for i in range(8)),
-                list(self._get_timing(function, i) for i in range(8)),
-                list(self._get_timing(func_checksum, i) for i in range(8)),
-            )
-        ]
+        packet = self._build_packet(
+            list(self._get_timing(device, i) for i in range(8)),
+            list(self._get_timing(sub_device, i) for i in range(8)),
+            list(self._get_timing(function, i) for i in range(8)),
+            list(self._get_timing(func_checksum, i) for i in range(8)),
+        )
+
         repeat = self._build_packet(
             list(self._get_timing(device, i) for i in range(1))
         )
-        packet += [repeat] * repeat_count
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + ([repeat] * repeat_count),
+            params,
+            repeat_count
+        )
+
+        if function in XBOX_ONE_COMMANDS:
+            code.name = self.__class__.__name__ + '.' + XBOX_ONE_COMMANDS[function]
+
+        return code
 
     def _test_decode(self):
         rlc = self.encode(0x70)

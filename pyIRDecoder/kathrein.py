@@ -72,13 +72,10 @@ class Kathrein(protocol_base.IrProtocolBase):
 
         if self._last_code is not None:
             if self._last_code == code:
-
                 c = self._last_code._code
                 function = c.get_value(0, 7)
 
                 if function != code.function:
-                    self._last_code.repeat_timer.stop()
-                    self._last_code = None
                     raise DecodeError('Invalid repeat frame')
 
                 return self._last_code
@@ -91,6 +88,8 @@ class Kathrein(protocol_base.IrProtocolBase):
         if dev_checksum != code.d_checksum or func_checksum != code.f_checksum:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
+
         return code
 
     def encode(self, device, function, repeat_count=0):
@@ -99,22 +98,32 @@ class Kathrein(protocol_base.IrProtocolBase):
             function,
         )
 
-        packet = [
-            self._build_packet(
-                list(self._get_timing(device, i) for i in range(4)),
-                list(self._get_timing(dev_checksum, i) for i in range(4)),
-                list(self._get_timing(function, i) for i in range(8)),
-                list(self._get_timing(func_checksum, i) for i in range(8))
-            )
-        ]
+        packet = self._build_packet(
+            list(self._get_timing(device, i) for i in range(4)),
+            list(self._get_timing(dev_checksum, i) for i in range(4)),
+            list(self._get_timing(function, i) for i in range(8)),
+            list(self._get_timing(func_checksum, i) for i in range(8))
+        )
 
         repeat = self._build_packet(
             list(self._get_timing(function, i) for i in range(8))
         )
 
-        packet += [repeat] * repeat_count
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + ([repeat] * repeat_count),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

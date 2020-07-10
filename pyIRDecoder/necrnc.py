@@ -64,6 +64,11 @@ class NECrnc(protocol_base.IrProtocolBase):
         ['function', 0, 255],
     ]
 
+    def __init__(self, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, xml)
+        if xml is None:
+            self._enabled = False
+
     def _calc_checksum(self, function):
         f1 = self._get_bits(function, 0, 3)
         f2 = self._get_bits(function, 4, 7)
@@ -102,7 +107,22 @@ class NECrnc(protocol_base.IrProtocolBase):
             list(self._get_timing(f1_checksum, i) for i in range(4)),
         )
 
-        return [packet] + self._build_repeat_packet(repeat_count)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + self._build_repeat_packet(repeat_count),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

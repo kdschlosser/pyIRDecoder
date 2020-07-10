@@ -69,12 +69,6 @@ class NRC17(protocol_base.IrProtocolBase):
         ['function', 0, 255],
     ]
 
-    repeat_timeout = 130500
-
-    def reset(self):
-        self._lead_out = [-TIMING * 28]
-        self._last_code = None
-
     def _calc_checksum(self, device, sub_device):
         c = 0
         for i in range(4):
@@ -84,22 +78,18 @@ class NRC17(protocol_base.IrProtocolBase):
         return c
 
     def decode(self, data, frequency=0):
-        try:
-            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-        except DecodeError:
+        lead_outs = [-TIMING * 28, -TIMING * 220, -TIMING * 200]
+        for lead_out in lead_outs:
+            self._lead_out[0] = lead_out
+            try:
+                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+                break
+            except DecodeError:
+                continue
+        else:
+            raise
 
-            lead_outs = [-TIMING * 28, -TIMING * 220, -TIMING * -200]
-            lead_outs.remove(self._lead_out[0])
-
-            for lead_out in lead_outs:
-                try:
-                    self._lead_out[0] = lead_out
-                    code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-                    break
-                except DecodeError:
-                    pass
-            else:
-                raise
+        print 'DECODED', code
 
         if code.c0 != 1:
             raise DecodeError('Invalid checksum')
@@ -141,7 +131,7 @@ class NRC17(protocol_base.IrProtocolBase):
         d = 15
         s = 15
 
-        self._lead_out = [-TIMING * 28]
+        self._lead_out[0] = -TIMING * 28
         prefix = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(f, i) for i in range(8)),
@@ -149,7 +139,7 @@ class NRC17(protocol_base.IrProtocolBase):
             list(self._get_timing(s, i) for i in range(4))
         )
 
-        self._lead_out = [-TIMING * 200]
+        self._lead_out[0] = -TIMING * 200
         suffix = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(f, i) for i in range(8)),
@@ -157,7 +147,7 @@ class NRC17(protocol_base.IrProtocolBase):
             list(self._get_timing(s, i) for i in range(4))
         )
 
-        self._lead_out = [-TIMING * 220]
+        self._lead_out[0] = -TIMING * 220
         code = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(function, i) for i in range(8)),
@@ -171,7 +161,22 @@ class NRC17(protocol_base.IrProtocolBase):
         packet += [code] * (repeat_count + 1)
         packet += [suffix]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [prefix[:], code[:], suffix[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc_codes = [

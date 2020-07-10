@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, RepeatLeadIn
 
 
 TIMING = 535
@@ -58,41 +58,55 @@ class DishPlayer(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
+        self._lead_in = [TIMING, -TIMING * 11]
+
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
-            if self._lead_in and self._last_code is None:
+            if self._last_code is None and len(self._sequence) == 0:
                 raise
 
-            self._lead_in = [TIMING, -TIMING * 11]
-
+            del self._lead_in[:]
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._lead_in:
+            if self._last_code is not None:
+                self._last_code.repeat_timer.stop()
+                self._last_code = None
+
+            self._sequence.append(code)
+            raise RepeatLeadIn
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            raise DecodeError('invalid repeat frame')
+
+        tt = sum(abs(item) for item in code.normalized_rlc[0])
+
+        original_rlc = [self._sequence[0].original_rlc[0], code.original_rlc[0]]
+        normalized_rlc = [self._sequence[0].normalized_rlc[0], code.normalized_rlc[0]]
 
         params = dict(
             D=code.device,
             S=code.sub_device,
-            F=function,
+            F=code.function,
             frequency=self.frequency
         )
 
-        c = protocol_base.IRCode(
+        self.repeat_timeout = tt
+        code = protocol_base.IRCode(
             self,
-            code.original_rlc,
-            code.normalized_rlc,
+            original_rlc,
+            normalized_rlc,
             params
         )
-        c._code = c
 
-        if self._last_code is None:
-            del self._lead_in[:]
-            self._last_code = c
-        elif self._last_code == c:
-            return self._last_code
-        else:
-            self._last_code.repeat_timer.stop()
-            self._last_code = c
-
-        return c
+        self.repeat_timeout = 0
+        del self._sequence[:]
+        self._last_code = code
+        return code
 
     def encode(self, device, sub_device, function, repeat_count=0):
         lead_in = self._lead_in[:]
@@ -112,10 +126,21 @@ class DishPlayer(protocol_base.IrProtocolBase):
 
         self._lead_in = lead_in[:]
 
-        packet = [packet]
-        packet += [repeat] * repeat_count
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:], repeat[:]],
+            [packet[:]] + ([repeat] * (repeat_count + 1)),
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [

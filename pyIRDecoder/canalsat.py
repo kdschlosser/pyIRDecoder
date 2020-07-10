@@ -63,26 +63,24 @@ class CanalSat(protocol_base.IrProtocolBase):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         if code.c0 != 0:
-            if self._last_code is not None:
-                self._last_code.repeat_timer.start()
             raise DecodeError('Checksum failed')
 
         if self._last_code is not None:
-            if self._last_code != code:
-                self._last_code.repeat_timer.stop()
-                self._last_code = None
-
-            elif code.toggle != 1:
-                raise DecodeError('toggle but out of sync')
-
-            else:
+            if (
+                self._last_code == code and
+                self._last_code.toggle == code.toggle
+            ):
                 return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
 
         if code.toggle == 0:
             code._data['T'] = 1
             self._last_code = code
-        else:
-            raise DecodeError('toggle bit incorrect')
+            return code
+
+        raise DecodeError('toggle bit incorrect')
 
     def encode(self, device, sub_device, function, repeat_count=0):
         toggle = 0
@@ -109,7 +107,21 @@ class CanalSat(protocol_base.IrProtocolBase):
 
         packet += [repeat] * repeat_count
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [lead_in[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [[

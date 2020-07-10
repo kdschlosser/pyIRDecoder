@@ -182,7 +182,7 @@ from .teack import TeacK  # NOQA
 from .thomson import Thomson  # NOQA
 from .thomson7 import Thomson7  # NOQA
 from .tivo import Tivo  # NOQA
-# velleman
+from .velleman import Velleman  # NOQA
 from .viewstar import Viewstar  # NOQA
 # whynter
 # x10
@@ -820,6 +820,10 @@ class IREncoder(object):
     @property
     def Tivo(self):
         return Tivo
+
+    @property
+    def Velleman(self):
+        return Velleman
 
     @property
     def Viewstar(self):

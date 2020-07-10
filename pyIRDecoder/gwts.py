@@ -96,7 +96,22 @@ class GwtS(protocol_base.IrProtocolBase):
             list(self._get_timing(crc, i) for i in range(8)),
             list(self._get_timing(c3, i) for i in range(1)),
         )
-        return [packet] * (repeat_count + 1)
+
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+            CRC=crc,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [[+417, -2085, +834, -834, +1251, -417, +2085, -417, +417, -417, +2085, -1251]]

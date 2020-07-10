@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError, RepeatLeadOut
+from . import EncodeError, DecodeError, RepeatLeadOut
 
 STREAMZAP = {
     0x00: "Num0",
@@ -99,6 +99,11 @@ class StreamZap(protocol_base.IrProtocolBase):
         ['function', 0, 63],
     ]
 
+    def __init__(self, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, xml)
+        if xml is None:
+            self._enabled = False
+
     def _calc_checksum(self, function):
         f = int(not self._get_bit(function, 5))
         return f
@@ -139,7 +144,7 @@ class StreamZap(protocol_base.IrProtocolBase):
         func_checksum = self._calc_checksum(function)
         toggle = 0
 
-        packet = self._build_packet(
+        code = self._build_packet(
             list(self._get_timing(func_checksum, i) for i in range(1)),
             list(self._get_timing(toggle, i) for i in range(1)),
             list(self._get_timing(device, i) for i in range(6)),
@@ -154,10 +159,31 @@ class StreamZap(protocol_base.IrProtocolBase):
             list(self._get_timing(device, i) for i in range(6)),
             list(self._get_timing(function, i) for i in range(6)),
         )
-        packet = [packet] * (repeat_count + 1)
+        packet = [code] * (repeat_count + 1)
         packet += [lead_out]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [code[:], lead_out[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        if function in STREAMZAP:
+            code.name = '{0}.{1}.{2}'.format(
+                self.__class__.__name__,
+                hex(device)[2:].upper().zfill(2),
+                STREAMZAP[function]
+            )
+
+        return code
 
     def _test_decode(self):
         rlc = self.encode(30, 0x0B, 1)

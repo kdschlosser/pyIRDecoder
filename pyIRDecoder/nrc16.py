@@ -141,7 +141,21 @@ class NRC16(protocol_base.IrProtocolBase):
         packet += [code] * (repeat_count + 1)
         packet += [suffix]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [prefix[:], code[:], suffix[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc_codes = [

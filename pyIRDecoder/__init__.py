@@ -32,6 +32,10 @@ class IRException(Exception):
     pass
 
 
+class EncodeError(IRException):
+    pass
+
+
 class DecodeError(IRException):
     pass
 

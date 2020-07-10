@@ -59,7 +59,7 @@ class Nokia32(protocol_base.IrProtocolBase):
         ['D', 0, 7],
         ['S', 8, 15],
         ['T', 16, 16],
-        ['X', 17, 23],
+        ['E', 17, 23],
         ['F', 24, 31],
     ]
     # [D:0..255,F:0..255]
@@ -67,13 +67,10 @@ class Nokia32(protocol_base.IrProtocolBase):
         ['device', 0, 255],
         ['sub_device', 0, 255],
         ['function', 0, 255],
-        ['x', 0, 127],
+        ['extended_function', 0, 127],
     ]
 
     def decode(self, data, frequency=0):
-        if not self._match(frequency, self.frequency, self.frequency_tolerance):
-            raise DecodeError('Invalid frequency')
-
         cleaned_code = []
         original_code = data[:]
         code = data[:]
@@ -171,12 +168,12 @@ class Nokia32(protocol_base.IrProtocolBase):
         self._last_code = code
         return code
 
-    def encode(self, device, sub_device, function, x, repeat_count=0):
+    def encode(self, device, sub_device, function, extended_function, repeat_count=0):
         toggle = 0
 
-        x = self._set_bit(x, 7, self._get_bit(toggle, 0))
+        x = self._set_bit(extended_function, 7, self._get_bit(toggle, 0))
 
-        packet = self._build_packet(
+        code = self._build_packet(
             list(self._get_timing(device, i) for i in range(0, 8, 2)),
             list(self._get_timing(sub_device, i) for i in range(0, 8, 2)),
             list(self._get_timing(x, i) for i in range(0, 8, 2)),
@@ -184,7 +181,7 @@ class Nokia32(protocol_base.IrProtocolBase):
         )
 
         toggle = 1
-        x = self._set_bit(x, 7, self._get_bit(toggle, 0))
+        x = self._set_bit(extended_function, 7, self._get_bit(toggle, 0))
 
         lead_out = self._build_packet(
             list(self._get_timing(device, i) for i in range(0, 8, 2)),
@@ -193,10 +190,26 @@ class Nokia32(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(0, 8, 2))
         )
 
-        packet = [packet] * (repeat_count + 1)
+        packet = [code] * (repeat_count + 1)
         packet += [lead_out]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+            E=extended_function
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [code[:], lead_out[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

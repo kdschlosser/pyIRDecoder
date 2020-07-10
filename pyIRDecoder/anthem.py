@@ -71,42 +71,54 @@ class Anthem(protocol_base.IrProtocolBase):
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
-            if self._lead_out[1] != -25000:
+            if self._lead_out[1] == -25000:
+                self._lead_out[1] = -75000
+            else:
                 self._lead_out[1] = -25000
-                try:
-                    code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-                except DecodeError:
-                    self._lead_out[1] = -75000
-                    raise
+
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         checksum = self._calc_checksum(code.device, code.sub_device, code.function)
 
         if checksum != code.checksum:
-            self._lead_out[1] = -25000
-            if self._last_code is not None:
-                self._last_code.repeat_timer.stop()
-
-            self._last_code = None
             raise DecodeError('Checksum failed')
 
-        if self._lead_out[1] == -75000:
-            if code == self._last_code:
+        if len(self._sequence) in (0, 1):
+            if self._lead_out[1] == -75000:
+                del self._sequence[:]
+                raise DecodeError('Invalid frame')
+
+            self._sequence.append(code)
+            raise RepeatLeadIn
+
+        params = dict(
+            frequency=self.frequency,
+            D=code.device,
+            S=code.sub_device,
+            F=code.function,
+            CHECKSUM=code.checksum
+        )
+
+        original_rlc = [
+            self._sequence[0].original_rlc[0],
+            self._sequence[1].original_rlc[0],
+            code.original_rlc[0]
+        ]
+        normalized_rlc = [
+            self._sequence[0].normalized_rlc[0],
+            self._sequence[1].normalized_rlc[0],
+            code.normalized_rlc[0]
+        ]
+
+        code = protocol_base.IRCode(self, original_rlc, normalized_rlc, params)
+
+        if self._last_code is not None:
+            if self._last_code == code:
                 return self._last_code
-            else:
-                self._last_code.stop()
-                self._last_code = None
-                raise DecodeError('lead out timing is out of sync')
 
-        if self._last_code is None:
-            self._last_code = code
-            raise RepeatLeadIn
-
-        if code == self._last_code:
-            self._lead_out[1] = -75000
-            raise RepeatLeadIn
+            self._last_code.repeat_timer.stop()
 
         self._last_code = code
-
         return code
 
     def encode(self, device, sub_device, function, repeat_count=0):
@@ -135,8 +147,21 @@ class Anthem(protocol_base.IrProtocolBase):
 
         packet = [lead_in, lead_in, code]
         packet += [code] * repeat_count
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [lead_in[:], lead_in[:], code[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [

@@ -62,7 +62,6 @@ class Amino(protocol_base.IrProtocolBase):
     encode_parameters = [
         ['device', 0, 15],
         ['function', 0, 255],
-        ['toggle', 0, 1]
     ]
 
     def _calc_checksum(self, device, function, toggle, c3):
@@ -78,32 +77,21 @@ class Amino(protocol_base.IrProtocolBase):
         checksum = self._calc_checksum(code.device, code.function, code.toggle, code.c3)
 
         if checksum != code.checksum or code.c0 != 1 or code.c1 != 1 or code.c2 != 0:
-            self._last_code = None
             raise DecodeError('Checksum failed')
 
         if self._last_code is not None:
             if (
-                self._last_code.device != code.device or
-                self._last_code.function != code.function
+                self._last_code == code and
+                self._last_code.toggle == code.toggle
             ):
-                if code.toggle != 1:
-                    self._last_code.repeat_timer.stop()
-                    self._last_code = None
-                    raise DecodeError('Invalid toggle')
+                return self._last_code
 
-            elif code.toggle != 0:
-                self._last_code.repeat_timer.stop()
-                self._last_code = None
-                raise DecodeError('Invalid toggle bit')
-
-            elif self._last_code.toggle == 1:
-                self._last_code.repeat_timer.cancel()
+            self._last_code.repeat_timer.stop()
 
         if code.toggle == 1:
-            code._data['T'] = 0
-            self._last_code = code
             raise RepeatLeadIn
 
+        self._last_code = code
         return code
 
     def encode(self, device, function, repeat_count=0):
@@ -152,11 +140,23 @@ class Amino(protocol_base.IrProtocolBase):
             list(self._get_timing(checksum, i) for i in range(4))
         )
 
-        packet = [packet1, packet2]
+        packet = [packet1]
+        packet += [packet2] * (repeat_count + 1)
 
-        packet += [packet2] * repeat_count
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet1[:], packet2[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [[

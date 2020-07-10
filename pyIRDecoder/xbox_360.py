@@ -163,7 +163,7 @@ class XBox360(protocol_base.IrProtocolBase):
         device = XBOX1_DEVICE
 
         toggle = 0
-        packet = self._build_packet(
+        code = self._build_packet(
             list(self._get_timing(c0, i) for i in range(1)),
             list(self._get_timing(mode, i) for i in range(3)),
             self._middle_timings[0],
@@ -186,10 +186,26 @@ class XBox360(protocol_base.IrProtocolBase):
             list(self._get_timing(function, i) for i in range(8)),
         )
 
-        packet = [packet] * (repeat_count + 1)
+        packet = [code] * (repeat_count + 1)
         packet += [lead_out]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [code[:], lead_out[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+
+        if function in XBOX360_COMMANDS:
+            code.name = self.__class__.__name__ + '.' + XBOX360_COMMANDS[function]
+
+        return code
 
     def _test_decode(self):
         rlc = self.encode(0x1C)

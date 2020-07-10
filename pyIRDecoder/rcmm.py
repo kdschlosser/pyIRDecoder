@@ -26,7 +26,6 @@
 
 # Local imports
 from . import DecodeError
-from . import macros
 from . import code_wrapper
 from . import protocol_base
 

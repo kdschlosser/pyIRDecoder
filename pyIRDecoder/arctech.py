@@ -96,12 +96,22 @@ class Arctech(protocol_base.IrProtocolBase):
             'frequency': self.frequency
         }
 
-        return protocol_base.IRCode(
+        code = protocol_base.IRCode(
             self,
-            code.original_code,
-            code.normalized_code,
+            code.original_rlc,
+            code.normalized_rlc,
             params
         )
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
+        self._last_code = code
+
+        return code
 
     def encode(self, device, sub_device, function, repeat_count=0):
         c0 = 40
@@ -109,18 +119,32 @@ class Arctech(protocol_base.IrProtocolBase):
 
         bit_mapping = {v: k for k, v in BIT_MAPPING.items()}
 
-        device = bit_mapping[device - 1]
-        sub_device = bit_mapping[sub_device - 1]
+        dev = bit_mapping[device]
+        sub_dev = bit_mapping[sub_device]
 
         packet = self._build_packet(
-            list(self._get_timing(device, i) for i in range(8)),
-            list(self._get_timing(sub_device, i) for i in range(8)),
+            list(self._get_timing(dev, i) for i in range(8)),
+            list(self._get_timing(sub_dev, i) for i in range(8)),
             list(self._get_timing(c0, i) for i in range(7)),
             list(self._get_timing(function, i) for i in range(1)),
             list(self._get_timing(c1, i) for i in range(1)),
         )
 
-        return [packet] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [[

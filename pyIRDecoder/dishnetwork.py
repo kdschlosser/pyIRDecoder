@@ -121,10 +121,21 @@ class DishNetwork(protocol_base.IrProtocolBase):
 
         self._lead_in = lead_in[:]
 
-        packet = [packet]
-        packet += [repeat] * repeat_count
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + ([repeat] * repeat_count),
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [[

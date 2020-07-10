@@ -97,7 +97,23 @@ class Digivision(protocol_base.IrProtocolBase):
             list(self._get_timing(func_checksum, i) for i in range(8)),
         )
 
-        return [packet] + self._build_repeat_packet(repeat_count)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            DEVICE2=device2,
+            DEVICE3=device3,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + self._build_repeat_packet(repeat_count),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

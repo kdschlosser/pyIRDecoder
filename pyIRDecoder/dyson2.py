@@ -39,6 +39,8 @@ class Dyson2(dyson.Dyson.__class__):
 
     _middle_timings = [(TIMING, -400000), (TIMING * 3, -TIMING)]
 
+    _backup_middle_timings = _middle_timings[:]
+
     def _test_decode(self):
         rlc = [
             [

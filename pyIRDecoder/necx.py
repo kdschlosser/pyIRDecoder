@@ -91,22 +91,33 @@ class NECx(protocol_base.IrProtocolBase):
     def encode(self, device, sub_device, function, repeat_count=0):
         func_checksum = self._calc_checksum(function)
 
-        packet = [
-            self._build_packet(
-                list(self._get_timing(device, i) for i in range(8)),
-                list(self._get_timing(sub_device, i) for i in range(8)),
-                list(self._get_timing(function, i) for i in range(8)),
-                list(self._get_timing(func_checksum, i) for i in range(8)),
-            )
-        ]
+        packet = self._build_packet(
+            list(self._get_timing(device, i) for i in range(8)),
+            list(self._get_timing(sub_device, i) for i in range(8)),
+            list(self._get_timing(function, i) for i in range(8)),
+            list(self._get_timing(func_checksum, i) for i in range(8)),
+        )
 
         repeat = self._build_packet(
             list(self._get_timing(device, i) for i in range(1))
         )
 
-        packet += [repeat] * repeat_count
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:]],
+            [packet[:]] + ([repeat[:]] * repeat_count),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [[

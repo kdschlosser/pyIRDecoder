@@ -232,14 +232,12 @@ class Humax4Phase(protocol_base.IrProtocolBase):
 
         toggle = 0
 
-        packet = [
-            self._build_packet(
-                list(self._get_timing(device, i) for i in range(0, 6, 2)),
-                list(self._get_timing(sub_device, i) for i in range(0, 6, 2)),
-                list(self._get_timing(toggle, i) for i in range(0, 2, 2)),
-                list(self._get_timing(func, i) for i in range(0, 8, 2)),
-            )
-        ]
+        packet = self._build_packet(
+            list(self._get_timing(device, i) for i in range(0, 6, 2)),
+            list(self._get_timing(sub_device, i) for i in range(0, 6, 2)),
+            list(self._get_timing(toggle, i) for i in range(0, 2, 2)),
+            list(self._get_timing(func, i) for i in range(0, 8, 2)),
+        )
 
         toggle = 1
 
@@ -250,9 +248,22 @@ class Humax4Phase(protocol_base.IrProtocolBase):
             list(self._get_timing(func, i) for i in range(0, 8, 2)),
         )
 
-        packet += [packet2] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            S=sub_device,
+            F=function,
+        )
 
-        return packet
+        code = protocol_base.IRCode(
+            self,
+            [packet[:], packet2[:]],
+            [packet[:]] + ([packet2[:]] * (repeat_count + 1)),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [

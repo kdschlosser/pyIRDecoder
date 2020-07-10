@@ -111,7 +111,21 @@ class Denon(protocol_base.IrProtocolBase):
             list(self._get_timing(c1, i) for i in range(2)),
         )
 
-        return [packet1, packet2] * (repeat_count + 1)
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [packet1[:], packet2[:]],
+            [packet1[:], packet2[:]] * (repeat_count + 1),
+            params,
+            repeat_count
+        )
+
+        return code
 
     def _test_decode(self):
         rlc = [

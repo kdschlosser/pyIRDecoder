@@ -61,47 +61,40 @@ class Blaupunkt(protocol_base.IrProtocolBase):
         ['function', 0, 63],
     ]
 
-    def __init__(self):
-        self.packet_count = 0
-        protocol_base.IrProtocolBase.__init__(self)
+    def __init__(self, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, xml)
+        if xml is None:
+            self._enabled = False
 
     def decode(self, data, frequency=0):
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
-            if self._lead_out[0] != -TIMING * 44:
-                self._lead_out[0] = -TIMING * 44
+            if self._lead_out[0] == -TIMING * 44:
+                self._lead_out[0] = -TIMING * 236
                 code = protocol_base.IrProtocolBase.decode(self, data, frequency)
             else:
-                raise
+                self._lead_out[0] = -TIMING * 44
+                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
 
         if self._lead_out[0] == -TIMING * 44:
             if code.c0 != 1 or code.device != 7 or code.function != 63:
-                if self._last_code is None:
-                    raise DecodeError('Invalid repeat lead in')
-                else:
-                    self._last_code.repeat_timer.stop()
-                    raise DecodeError('Invalid repeat lead out')
+                raise DecodeError('Invalid repeat lead in/out')
 
-            if self._last_code is None:
-                self._lead_out[0] = -TIMING * 236
-                raise RepeatLeadIn
-            else:
-                self._last_code.repeat_timer.stop()
-                raise RepeatLeadOut
+            raise RepeatLeadOut
 
         if code.c0 != 1:
             raise DecodeError('Invalid checksum')
 
-        if self._last_code is None:
-            self._last_code = code
-            return code
-
-        if self._last_code != code:
-            self._last_code.repeat_timer.start()
-            raise DecodeError('Repeat code does not match')
-
-        return self._last_code
+        self._last_code = code
+        return code
 
     def encode(self, device, function, repeat_count=0):
         c0 = 1
@@ -140,7 +133,20 @@ class Blaupunkt(protocol_base.IrProtocolBase):
         packet += [code] * repeat_count
         packet += [lead_out]
 
-        return packet
+        params = dict(
+            frequency=self.frequency,
+            D=device,
+            F=function,
+        )
+
+        code = protocol_base.IRCode(
+            self,
+            [lead_in[:], code[:], lead_out[:]],
+            packet[:],
+            params,
+            repeat_count
+        )
+        return code
 
     def _test_decode(self):
         rlc = [

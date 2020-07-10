@@ -75,7 +75,7 @@ class Config(object):
         return getattr(self._xml, item)
 
     def __setattr__(self, key, value):
-        if key == '_xml':
+        if key in ('_xml', '_database_url'):
             object.__setattr__(self, key, value)
         else:
             setattr(self._xml, key, value)
