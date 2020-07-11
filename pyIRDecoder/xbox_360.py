@@ -25,7 +25,7 @@
 # ***********************************************************************************
 
 # Local imports
-from . import DecodeError
+from . import DecodeError, RepeatLeadOut
 from . import protocol_base
 
 
@@ -123,6 +123,7 @@ class XBox360(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
         if self._last_code is not None:
             if (
                 self._last_code == code and
@@ -130,12 +131,11 @@ class XBox360(protocol_base.IrProtocolBase):
             ):
                 return self._last_code
 
-            self._last_code.repeat_timer.stop()
-            if self._last_code == code:
-                self._last_code = None
-                raise RepeatLeadOut
+            last_code = self._last_code
 
-            self._last_code = None
+            self._last_code.repeat_timer.stop()
+            if last_code == code:
+                raise RepeatLeadOut
 
         if code.c0 != 1:
             raise DecodeError('Checksum failed')

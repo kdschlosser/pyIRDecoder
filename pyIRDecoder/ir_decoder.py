@@ -52,8 +52,6 @@ from .bryston import Bryston  # NOQA
 from .canalsat import CanalSat  # NOQA
 from .canalsatld import CanalSatLD  # NOQA
 from .denon import Denon  # NOQA
-from .denon1 import Denon1  # NOQA
-from .denon2 import Denon2  # NOQA
 from .denon_k import DenonK  # NOQA
 from .dgtec import Dgtec  # NOQA
 from .digivision import Digivision  # NOQA
@@ -225,8 +223,6 @@ _DECODERS = [
     CanalSat,
     CanalSatLD,
     Denon,
-    Denon1,
-    Denon2,
     DenonK,
     Dgtec,
     Digivision,
@@ -370,6 +366,9 @@ _DECODERS = [
 ]
 
 
+from . import high_precision_timers
+
+
 class IRDecoder(object):
     def __init__(self, config=None):
         if config is None:
@@ -380,6 +379,8 @@ class IRDecoder(object):
         self.__config = config
         self.__decoders = deque()
         self.__last_code = None
+        self.__timer = high_precision_timers.TimerUS()
+        self.__running = False
 
         for i, decoder in enumerate(_DECODERS):
             for decoder_xml in self.__config:
@@ -431,7 +432,14 @@ class IRDecoder(object):
             self.__last_code = None
 
     def decode(self, data, frequency=0):
+        if self.__running:
+            raise RuntimeError('Create a new decoder instance for each thread.')
+
+        self.__running = True
+        self.__timer.reset()
+
         if isinstance(data, protocol_base.IRCode):
+            self.__running = False
             raise DecodeError('Input to be decoded must be RLC')
 
         if isinstance(data, tuple):
@@ -451,22 +459,27 @@ class IRDecoder(object):
 
         if self.__last_code is not None:
             if self.__last_code.decoder.frequency_match(frequency):
-                if len(data) == 1 and self.__last_code == data[0]:
-                    self.__last_code.repeat_timer.start()
+                if len(data) == 1 and data[0] == self.__last_code:
+                    self.__last_code.repeat_timer.start(self.__timer)
+                    self.__running = False
                     return self.__last_code
 
+                code = None
                 for rlc in data:
                     try:
                         code = self.__last_code.decoder.decode(rlc, frequency)
-                        code.repeat_timer.start()
-                        return code
                     except DecodeError:
                         break
-                    except RepeatLeadOut:
-                        return None
-                    except RepeatLeadIn:
+                    except (RepeatLeadIn, RepeatLeadOut, RepeatTimeoutExpired):
                         if len(data) == 1:
+                            self.__running = False
                             return None
+
+                if code is not None:
+                    code.repeat_timer.start(self.__timer)
+                    self.__last_code = code
+                    self.__running = False
+                    return code
 
         code = None
 
@@ -478,23 +491,26 @@ class IRDecoder(object):
                 if not decoder.frequency_match(frequency):
                     continue
 
+            for c in decoder:
+                if c == data:
+                    if decoder._last_code is not None:
+                        if decoder._last_code != c:
+                            decoder._last_code.repeat_timer.stop()
+
+                    decoder._last_code = c
+                    c.repeat_timer.start(self.__timer)
+                    self.__last_code = c
+                    self.__running = False
+                    return c
+
             for rlc in data:
-                for code in decoder:
-                    if code == rlc:
-                        break
-                else:
-                    code = None
-
-                if code is not None:
-                    break
-
                 try:
                     code = decoder.decode(rlc, frequency)
                 except DecodeError:
                     break
-
                 except (RepeatLeadIn, RepeatLeadOut, RepeatTimeoutExpired):
                     if len(data) == 1:
+                        self.__running = False
                         return None
 
                     continue
@@ -509,18 +525,21 @@ class IRDecoder(object):
                     rlc = r[:]
 
             if len(rlc) < 6:
+                self.__running = False
                 return None
 
             decoder = self.Universal
             try:
                 code = decoder.decode(rlc, frequency)
             except DecodeError:
+                self.__running = False
                 return None
 
         self.__last_decoder = code.decoder
         code.bind_released_callback(self.__reset_last_code)
-        code.repeat_timer.start()
+        code.repeat_timer.start(self.__timer)
         self.__last_code = code
+        self.__running = False
 
         return code
 
@@ -628,14 +647,6 @@ class IRDecoder(object):
     @property
     def Denon(self):
         return self.__get_decoder(Denon)
-
-    @property
-    def Denon1(self):
-        return self.__get_decoder(Denon1)
-
-    @property
-    def Denon2(self):
-        return self.__get_decoder(Denon2)
 
     @property
     def DenonK(self):

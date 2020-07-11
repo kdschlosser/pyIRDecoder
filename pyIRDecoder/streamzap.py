@@ -118,12 +118,11 @@ class StreamZap(protocol_base.IrProtocolBase):
             ):
                 return self._last_code
 
+            last_code = self._last_code
             self._last_code.repeat_timer.stop()
-            if self._last_code == code:
-                self._last_code = None
-                raise RepeatLeadOut
 
-            self._last_code = None
+            if last_code == code:
+                raise RepeatLeadOut
 
         func_checksum = self._calc_checksum(code.function)
 

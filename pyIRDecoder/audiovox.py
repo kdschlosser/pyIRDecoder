@@ -56,6 +56,12 @@ class Audiovox(protocol_base.IrProtocolBase):
         ['function', 0, 255],
     ]
 
+    def __init__(self, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, xml)
+
+        if xml is None:
+            self._enabled = False
+
     def encode(self, device, function, repeat_count=0):
         packet = self._build_packet(
             list(self._get_timing(device, i) for i in range(8)),

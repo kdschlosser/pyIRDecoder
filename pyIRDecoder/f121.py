@@ -35,6 +35,10 @@ class F121(protocol_base.IrProtocolBase):
     """
     IR decoder for the F121 protocol.
     """
+
+    irp = '{37.9k,422,lsb}<1,-3|3,-1>(D:3,H:1,F:8,-34,D:3,H:1,F:8){H=0}'
+
+
     irp = '{37.9k,422,lsb}<1,-3|3,-1>(D:3,H:1,F:8,-34,D:3,H:1,F:8,-88,D:3,H:1,F:8,-34,D:3,H:1,F:8)*{H=1}'
     frequency = 37900
     bit_count = 48
@@ -86,92 +90,71 @@ class F121(protocol_base.IrProtocolBase):
             elif c.num_bits < self.bit_count / 4:
                 raise DecodeError('Not enough bits')
 
-            params = dict(frequency=self.frequency)
+            prms = dict(frequency=self.frequency)
             for name, start, stop in self._parameters[:3]:
-                params[name] = c.get_value(start, stop)
+                prms[name] = c.get_value(start, stop)
 
-            c = protocol_base.IRCode(self, c.original_code, list(c), params)
+            c = protocol_base.IRCode(self, c.original_code, list(c), prms)
             if c.h != 1:
                 raise DecodeError('Invalid checksum')
 
             return c
 
-        if not len(self._sequence):
+        try:
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        except DecodeError:
             try:
-                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+                if len(self._sequence) == 0:
+                    self._sequence.append(_get_code([self._middle_timings[0]]))
+                    raise RepeatLeadIn
+                if len(self._sequence) == 1:
+                    self._sequence.append(_get_code([self._middle_timings[1]]))
+                    raise RepeatLeadIn
+                if len(self._sequence) == 2:
+                    self._sequence.append(_get_code([self._middle_timings[2]]))
+                    raise RepeatLeadIn
 
-                if self._last_code is not None:
-                    if self._last_code == code:
-                        return self._last_code
+                self._sequence.append(_get_code([]))
 
-                    self._last_code.repeat_timer.stop()
-                    self._last_code = None
+                params = dict(
+                    frequency=self.frequency
+                )
+                normalized_rlc = []
+                original_rlc = []
 
-                if (
-                    code.device != code.d1 != code.d2 != code.d3 or
-                    code.h != code.h1 != 1 != code.h2 != code.h3 or
-                    code.function != code.f1 != code.f2 != code.f3
-                ):
-                    raise DecodeError('Invalid checksum')
+                for i, code in enumerate(self._sequence):
+                    if i == 0:
+                        num = ''
+                    else:
+                        num = str(i)
 
-                self._last_code = code
-                return code
+                    params['D' + num] = code.device
+                    params['F' + num] = code.function
+                    params['H' + num] = code.h
+                    normalized_rlc += code.normalized_rlc[0]
+                    original_rlc += code.original_rlc[0]
 
-            except DecodeError:
-                self._sequence.append(_get_code([self._middle_timings[0]]))
-                raise RepeatLeadIn
-
-        if len(self._sequence) == 1:
-            try:
-                self._sequence.append(_get_code([self._middle_timings[1]]))
-                raise RepeatLeadIn
-            except DecodeError:
-                try:
-                    self._sequence.append(_get_code([]))
-                    from . import f120
-                    for code in self._sequence:
-                        try:
-                            code = f120.F120.decode(code.original_rlc, f120.F120.frequency)
-                            del self._sequence[:]
-                            return code
-                        except RepeatLeadIn:
-                            continue
-
-                except DecodeError:
-                    del self._sequence[:]
-                raise
-
-        if len(self._sequence) == 2:
-            try:
-                self._sequence.append(_get_code([self._middle_timings[2]]))
-                raise RepeatLeadIn
+                code = protocol_base.IRCode(self, original_rlc, normalized_rlc, params)
             except DecodeError:
                 del self._sequence[:]
                 raise
 
-        if len(self._sequence) == 3:
-            try:
-                code = _get_code([])
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
 
-                for cde in self._sequence:
-                    if cde.device != code.device or cde.function != code.function:
-                        del self._sequence[:]
-                        raise DecodeError('invalid frame')
+            self._last_code.repeat_timer.stop()
+            self._last_code = None
 
-                del self._sequence[:]
+        if (
+            code.device != code.d1 != code.d2 != code.d3 or
+            code.h != code.h1 != 1 != code.h2 != code.h3 or
+            code.function != code.f1 != code.f2 != code.f3
+        ):
+            raise DecodeError('Invalid checksum')
 
-                if self._last_code is not None:
-                    if self._last_code == code:
-                        return self._last_code
-
-                    self._last_code.repeat_timer.stop()
-
-                self._last_code = code
-                return code
-
-            except DecodeError:
-                del self._sequence[:]
-                raise
+        self._last_code = code
+        return code
 
     def encode(self, device, function, repeat_count=0):
         h = 1

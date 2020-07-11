@@ -26,7 +26,7 @@
 
 # Local imports
 from . import protocol_base
-from . import DecodeError, RepeatLeadOut
+from . import DecodeError, RepeatLeadIn
 
 TIMING = 264
 
@@ -37,16 +37,20 @@ class Denon(protocol_base.IrProtocolBase):
     """
     irp = '{38k,264,lsb}<1,-3|1,-7>(D:5,F:8,0:2,1,-165,D:5,~F:8,3:2,1,-165)*'
     frequency = 38000
-    bit_count = 15
+    bit_count = 30
     encoding = 'lsb'
 
     _lead_out = [TIMING, -TIMING * 165]
+    _middle_timings = [(TIMING, -TIMING * 165)]
     _bursts = [[TIMING, -TIMING * 3], [TIMING, -TIMING * 7]]
 
     _parameters = [
         ['D', 0, 4],
         ['F', 5, 12],
-        ['CHECKSUM', 13, 14]
+        ['C0', 13, 14],
+        ['D_CHECKSUM', 15, 19],
+        ['F_CHECKSUM', 20, 27],
+        ['C1', 28, 29]
     ]
     # [D:0..31,F:0..255]
     encode_parameters = [
@@ -59,41 +63,94 @@ class Denon(protocol_base.IrProtocolBase):
         return f
 
     def decode(self, data, frequency=0):
-        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        try:
+            c = protocol_base.code_wrapper.CodeWrapper(
+                self.encoding,
+                self._lead_in[:],
+                self._lead_out[:],
+                self._middle_timings[:],
+                self._bursts[:],
+                self.tolerance,
+                data[:]
+            )
 
-        if code.checksum == 0:
-            self._last_code = code
-            return code
+            if c.num_bits > self.bit_count:
+                raise DecodeError('To many bits')
+            elif c.num_bits < self.bit_count:
+                raise DecodeError('Not enough bits')
 
-        if code.checksum == 3:
-            if self._last_code is None:
-                function = self._calc_checksum(code.function)
+            params = dict(frequency=self.frequency)
+            for name, start, stop in self._parameters:
+                params[name] = c.get_value(start, stop)
 
-                params = dict(
-                    D=code.device,
-                    F=function,
-                    frequency=self.frequency
-                )
-                from . import denon2
-                return protocol_base.IRCode(denon2.Denon2, code.original_rlc, code.normalized_rlc, params)
+            code = protocol_base.IRCode(self, c.original_code, list(c), params)
+            code._code = c
 
-            if code.device == self._last_code.device:
-                func_checksum = self._calc_checksum(self._last_code.function)
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        except DecodeError:
+            c = protocol_base.code_wrapper.CodeWrapper(
+                self.encoding,
+                self._lead_in[:],
+                self._lead_out[:],
+                [],
+                self._bursts[:],
+                self.tolerance,
+                data[:]
+            )
 
-                if func_checksum != code.function:
-                    self._last_code.reset_timer.start()
-                    raise DecodeError('Checksum failed')
+            if c.num_bits > self.bit_count // 2:
+                raise DecodeError('To many bits')
+            elif c.num_bits < self.bit_count // 2:
+                raise DecodeError('Not enough bits')
 
+            params = dict(frequency=self.frequency)
+            for name, start, stop in self._parameters[:3]:
+                params[name] = c.get_value(start, stop)
+
+            code = protocol_base.IRCode(self, c.original_code, list(c), params)
+            code._code = c
+
+            if len(self._sequence) == 0:
+                self._sequence.append(code)
+                raise RepeatLeadIn
+
+            c = self._sequence[0]
+
+            params = dict(
+                frequency=self.frequency,
+                D=c.device,
+                F=c.function,
+                C0=c.C0,
+                D_CHECKSUM=code.device,
+                F_CHECKSUM=code.function,
+                C1=code.c0
+            )
+
+            code = protocol_base.IRCode(
+                self,
+                c.original_rlc + code.original_rlc,
+                c.normalized_rlc + code.normalized_rlc,
+                params
+            )
+            del self._sequence[:]
+
+        if self._last_code is not None:
+            if self._last_code == code:
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
             self._last_code = None
-            raise DecodeError('dunno what happened?!?!?!')
 
-        if self._last_code is not None:
-            self._last_code.reset_timer.start()
+        if code.c0 != 0 or code.c1 != 3:
+            raise DecodeError('invalid checksum')
 
-        raise DecodeError('Invalid checksum')
+        func_checksum = self._calc_checksum(code.function)
+
+        if code.device != code.d_checksum or func_checksum != code.f_checksum:
+            raise DecodeError('Invalid checksum')
+
+        self._last_code = code
+        return code
 
     def encode(self, device, function, repeat_count=0):
         c0 = 0

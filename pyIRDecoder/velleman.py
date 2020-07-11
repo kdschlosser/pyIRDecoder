@@ -35,7 +35,7 @@ class Velleman(protocol_base.IrProtocolBase):
     """
     irp = '{38k,msb}<700,-5060|700,-7590>(1:1,T:1,D:3,F:6,700,-55m)*'
     frequency = 38000
-    bit_count = 10
+    bit_count = 11
     encoding = 'msb'
 
     _lead_in = []
@@ -51,13 +51,12 @@ class Velleman(protocol_base.IrProtocolBase):
         ['C0', 0, 0],
         ['T', 1, 1],
         ['D', 2, 4],
-        ['F', 5, 9]
+        ['F', 5, 10]
     ]
     # [D:0..7,F:0..63,T@:0..1=0]
     encode_parameters = [
         ['device', 0, 7],
-        ['function', 0, 63],
-        ['toggle', 0, 1],
+        ['function', 0, 63]
     ]
 
     def decode(self, data, frequency=0):
@@ -69,9 +68,10 @@ class Velleman(protocol_base.IrProtocolBase):
             ):
                 return self._last_code
 
+            last_code = self._last_code
             self._last_code.repeat_timer.stop()
-            if self._last_code == code:
-                self._last_code = None
+
+            if last_code == code:
                 raise RepeatLeadOut
 
             self._last_code = None
@@ -136,38 +136,6 @@ class Velleman(protocol_base.IrProtocolBase):
     def _test_encode(self):
         params = dict(function=3, toggle=0, device=5)
         protocol_base.IrProtocolBase._test_encode(self, params)
-
-
-Velleman = Velleman()
-
-class Velleman(protocol_base.IRPNotation):
-    """
-    IR decoder for the Velleman protocol.
-    """
-    irp = '{38k,1,msb}<700,-5060|700,-7590>(1:1,T:1,D:3,F:6,1,-55m)+'
-    variables = ['D', 'F', 'T']
-
-    def encode(self, device, function, toggle):
-
-        def get_bit(value, bit_num):
-            if value & (1 << bit_num) != 0:
-                return [self.mark_1, self.space_1]
-            else:
-                return [self.mark_0, self.space_0]
-
-        encoded_bit1 = [get_bit(1, i) for i in range(1)]
-        encoded_function = [get_bit(function, i) for i in range(2, -1, -1)]
-        encoded_device = [get_bit(device, i) for i in range(5, -1, -1)]
-        encoded_toggle = [get_bit(toggle, i) for i in range(1)]
-
-        packet = encoded_bit1
-        packet += encoded_toggle
-        packet += encoded_device
-        packet += encoded_function
-        packet += zip(self.footer_mark, self.footer_space)
-        packet = list(item for sublist in packet for item in sublist)
-
-        return Velleman.decode(packet, self.frequency)
 
 
 Velleman = Velleman()

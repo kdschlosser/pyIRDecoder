@@ -29,6 +29,7 @@ import random
 import pyIRDecoder
 import time
 import threading
+from pyIRDecoder import high_precision_timers
 
 
 ir_decoder = pyIRDecoder.IRDecoder()
@@ -47,6 +48,7 @@ class TestBase(object):
 
     @classmethod
     def enable(cls, value):
+        print(cls.decoder.name, cls.decoder.enabled, value)
         cls.decoder.enabled = value
 
     @classmethod
@@ -69,15 +71,27 @@ class TestBase(object):
             params[name] = val
 
         print(params)
-        start = time.time()
+        start = high_precision_timers.TimerUS()
 
         rlc = cls.encoder.encode(**params)
 
-        stop = time.time()
-        print('ir code')
+        stop = start.elapsed()
+        print('ir code', rlc)
         for item in rlc:
             print('   ', item)
-        print('single code encoding time:', (stop - start) * 1000, 'ms')
+
+        print('encoding time:', stop, 'us')
+        print()
+
+        start.reset()
+        rlc = cls.encoder.encode(repeat_count=random.randrange(0, 10), **params)
+        stop = start.elapsed()
+
+        print('ir code with {0} repeats'.format(rlc.repeat_count), rlc)
+        for item in rlc:
+            print('   ', item)
+
+        print('encoding time:', stop, 'us')
         print()
 
         print('decoding', cls.__name__)
@@ -85,32 +99,30 @@ class TestBase(object):
         wait_event = threading.Event()
 
         def key_released_callback(cde):
-            print(cde, ' key released released')
             wait_event.set()
-
-        rlc = cls.encoder.encode(repeat_count=3, **params)
-        print(rlc)
-
-        start = time.time()
 
         code = None
         for c in rlc:
-            c = ir_decoder.decode(c, cls.decoder.frequency)
+            if code is not None and not code.repeat_timer.is_running:
+                raise RuntimeError('repeat code not running ' + str(code))
+
+            start.reset()
+            c = ir_decoder.decode(c, rlc.frequency)
+            stop = start.elapsed()
+
+            decoding_times.append(stop)
+            print('decoding time:', stop, 'us')
+
             if c is None:
                 continue
 
             code = c
             code.bind_released_callback(key_released_callback)
 
-            print('decoded friendly', code)
-            print('decoded hexdecimal', code.hexdecimal)
+            wait_event.wait(code.repeat_timer.duration / 1000000.0)
 
-        stop = time.time()
-
-        wait_event.wait(10)
-
-        if not wait_event.is_set():
-            raise RuntimeError('repeat timeout problem')
+        if code is None:
+            raise RuntimeError
 
         if code.decoder == ir_decoder.Universal:
             raise RuntimeError
@@ -118,15 +130,23 @@ class TestBase(object):
         if not isinstance(cls.decoder, code.decoder.__class__):
             raise RuntimeError(code.decoder.name + ' != ' + cls.decoder.name)
 
+        wait_event.wait(10)
+
+        print('decoded friendly', code)
+        print('decoded hexdecimal', code.hexdecimal)
+        print('code duration', code.repeat_timer.duration / 1000.0, 'ms')
+
+        if not wait_event.is_set():
+            raise RuntimeError('repeat timeout problem')
+
+        print(code, ' key released')
+
         for key, val in params.items():
             v = getattr(code, key.lower())
             if v != val:
                 raise ValueError(key + ', ' + str(val) + ', ' + str(v))
 
         print('success', code)
-
-        decoding_times.append((stop - start) * 1000)
-        print('decoding time:', (stop - start) * 1000, 'ms')
         print()
         print()
 
@@ -224,16 +244,6 @@ class CanalSatLD(TestBase):
 class Denon(TestBase):
     decoder = ir_decoder.Denon
     encoder = ir_encoder.Denon
-
-
-class Denon1(TestBase):
-    decoder = ir_decoder.Denon1
-    encoder = ir_encoder.Denon1
-
-
-class Denon2(TestBase):
-    decoder = ir_decoder.Denon2
-    encoder = ir_encoder.Denon2
 
 
 class DenonK(TestBase):
@@ -943,15 +953,12 @@ if __name__ == '__main__':
     Archer.test()
     Arctech.test()
     Arctech38.test()
-    Audiovox.test()
     Barco.test()
     Bose.test()
     Bryston.test()
     CanalSat.test()
     CanalSatLD.test()
-    Denon2.test()
     Denon.test()
-    Denon1.test()
     DenonK.test()
     Dgtec.test()
     Digivision.test()
@@ -1081,7 +1088,7 @@ if __name__ == '__main__':
     TDC56.test()
     TeacK.test()
     Thomson.test()
-    Velleman.test()
+    # Velleman.test()
     Viewstar.test()
     XBox360.test()
     XBoxOne.test()
@@ -1111,4 +1118,12 @@ if __name__ == '__main__':
     Blaupunkt.enable(True)
     Blaupunkt.test()
 
-    print('average decoding time:', sum(decoding_times) / float(len(decoding_times)), 'ms')
+    Proton40.enable(False)
+    Audiovox.enable(True)
+    Audiovox.test()
+
+    max_decode = max(decoding_times)
+    avg_decode = sum(decoding_times) / float(len(decoding_times))
+
+    print('max decoding time:', max_decode, 'us (' + str(max_decode / 1000.0) + ' ms)')
+    print('average decoding time:', avg_decode, 'us (' + str(avg_decode / 1000.0) + ' ms)')

@@ -89,8 +89,6 @@ class NRC17(protocol_base.IrProtocolBase):
         else:
             raise
 
-        print 'DECODED', code
-
         if code.c0 != 1:
             raise DecodeError('Invalid checksum')
 

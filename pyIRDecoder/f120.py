@@ -64,20 +64,41 @@ class F120(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
-        self._middle_timings = [-TIMING * 34]
-        del self._lead_out[:]
-        self.bit_count = 24
+        def _get_code(lead_out):
+            c = protocol_base.code_wrapper.CodeWrapper(
+                self.encoding,
+                self._lead_in[:],
+                lead_out,
+                [],
+                self._bursts[:],
+                self.tolerance,
+                data[:]
+            )
+
+            if c.num_bits > self.bit_count / 2:
+                raise DecodeError('To many bits')
+            elif c.num_bits < self.bit_count / 2:
+                raise DecodeError('Not enough bits')
+
+            prms = dict(frequency=self.frequency)
+            for name, start, stop in self._parameters[:3]:
+                prms[name] = c.get_value(start, stop)
+
+            c = protocol_base.IRCode(self, c.original_code, list(c), prms)
+            if c.h != 0:
+                raise DecodeError('Invalid checksum')
+
+            return c
 
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
-            self.bit_count = 12
-            if len(self._sequence) == 1:
-                del self._lead_out[:]
-                del self._middle_timings[:]
-
+            if len(self._sequence) == 0:
+                self._sequence.append(_get_code(self._middle_timings))
+                raise RepeatLeadIn
+            else:
                 try:
-                    code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+                    code = _get_code([])
                 except DecodeError:
                     del self._sequence[:]
                     raise
@@ -103,18 +124,11 @@ class F120(protocol_base.IrProtocolBase):
 
                 del self._sequence[:]
 
-            else:
-                self._lead_out = [self._middle_timings.pop(0)]
-                code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-                self._sequence.append(code)
-                raise RepeatLeadIn
-
         if self._last_code is not None:
             if self._last_code == code:
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
-            self._last_code = None
 
         if (
             code.device != code.d1 or

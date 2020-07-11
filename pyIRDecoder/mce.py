@@ -138,14 +138,19 @@ class MCE(protocol_base.IrProtocolBase):
             ):
                 return self._last_code
 
+            last_code = self._last_code
             self._last_code.repeat_timer.stop()
-            if self._last_code == code:
-                self._last_code = None
+
+            if last_code == code:
                 raise RepeatLeadOut
 
-            self._last_code = None
-
-        if code.c0 != 1 or code.mode != 6 or code.oem1 != OEM1 or code.oem2 != OEM2 or code.device != MCE_DEVICE:
+        if (
+            code.c0 != 1 or
+            code.mode != 6 or
+            code.oem1 != OEM1 or
+            code.oem2 != OEM2 or
+            code.device != MCE_DEVICE
+        ):
             raise DecodeError('Checksum failed')
 
         if code.function not in MCE_COMMANDS:

@@ -24,9 +24,8 @@
 
 # ***********************************************************************************
 
-from __future__ import print_function
-
-import threading
+from . import high_precision_timers
+from . import thread_worker
 from . import pronto
 from . import utils
 from . import xml_handler
@@ -35,38 +34,48 @@ from . import xml_handler
 class Timer(object):
     def __init__(self, func, duration):
         self.func = func
-        self.duration = duration
-        self.event = threading.Event()
-        self.thread = None
+        self.timer_thread_worker = thread_worker.TimerThreadWorker()
+        self.process_thread_worker = thread_worker.ProcessThreadWorker()
+        self._duration = duration
+        self._adjusted_duration = duration
+        self.timer = None
 
-    def cancel(self):
-        if self.thread is not None:
-            self.event.set()
-            self.thread.join()
+    @property
+    def duration(self):
+        return self._duration
+
+    @property
+    def adjusted_duration(self):
+        return self._adjusted_duration
+
+    def run_func(self):
+        if self.timer is None:
+            return True
+
+        if self.timer.elapsed() >= self.adjusted_duration:
+            self.process_thread_worker.add(self.func)
+            self.timer = None
+            return True
+
+        return False
 
     def stop(self):
-        if self.thread is not None:
-            self.event.set()
-            self.thread.join()
-            self.func()
+        if self.timer is not None:
+            self.timer = None
+            self.process_thread_worker.add(self.func)
 
-    def start(self):
-        self.cancel()
-        self.thread = threading.Thread(target=self.run)
-        self.thread.daemon = True
-        self.thread.start()
+    def start(self, timer):
+        self._adjusted_duration = self.duration + int(self.duration * 0.20) + timer.elapsed()
 
-    def run(self):
-        self.event.wait(self.duration / 1000000.0)
-        if not self.event.is_set():
-            self.func()
+        if self.timer is None:
+            self.timer = high_precision_timers.TimerUS()
 
-        self.event.clear()
-        self.thread = None
+        self.timer.reset()
+        self.timer_thread_worker.add(self)
 
     @property
     def is_running(self):
-        return self.thread is not None
+        return self.timer is not None and self.timer.elapsed() < self.adjusted_duration
 
 
 class IRCode(object):
@@ -86,18 +95,21 @@ class IRCode(object):
         self._name = None
         self._name = str(self)
         self._xml = None
+        self._int = None
+        self._hex = None
         self._callbacks = []
         self._repeat_count = repeat_count
 
         if decoder.repeat_timeout == 0:
-            tt = 0
+            repeat_timeout = 0
             for rlc in original_rlc:
-                tt += sum(abs(item) for item in rlc)
-
-            tt += 10000
-            self._repeat_timer = Timer(self.__repeat_reset, tt)
+                repeat_timeout += sum(abs(item) for item in rlc)
         else:
-            self._repeat_timer = Timer(self.__repeat_reset, decoder.repeat_timeout)
+            repeat_timeout = decoder.repeat_timeout
+
+        self._repeat_timer = Timer(self.__repeat_reset, repeat_timeout)
+        self._repeat_duration = repeat_timeout
+        self.bind_released_callback(decoder.reset)
 
     def __iter__(self):
         for item in self.normalized_rlc:
@@ -108,14 +120,12 @@ class IRCode(object):
         return self._repeat_count
 
     def __repeat_reset(self):
-        for callback in self._callbacks:
+        for callback in self._callbacks[:]:
             callback(self)
-
-        self.decoder.reset()
 
     def bind_released_callback(self, callback):
         if callback not in self._callbacks:
-            self._callbacks.insert(0, callback)
+            self._callbacks.append(callback)
 
     def unbind_released_callback(self, callback):
         if callback in self._callbacks:
@@ -361,28 +371,30 @@ class IRCode(object):
         raise AttributeError(item)
 
     def __int__(self):
-        bits = ''
+        if self._int is None:
+            bits = ''
 
-        def _get_bits(val, strt, stp):
-            bts = []
+            def _get_bits(val, strt, stp):
+                bts = []
 
-            for i in range(strt, stp + 1):
-                bts.insert(0, str(self._decoder._get_bit(val, i)))
+                for i in range(strt, stp + 1):
+                    bts.insert(0, str(self._decoder._get_bit(val, i)))
 
-            return ''.join(bts)
+                return ''.join(bts)
 
-        if 'CODE' in self._data:
-            bits += bin(self.code)[2:]
+            if 'CODE' in self._data:
+                bits += bin(self.code)[2:]
 
-        else:
-            for name, start, stop in self._decoder._parameters:
-                if name.startswith('T'):
-                    continue
+            else:
+                for name, start, stop in self._decoder._parameters:
+                    if name.startswith('T'):
+                        continue
 
-                if name in self._data:
-                    bits += _get_bits(self._data[name], start, stop)
+                    if name in self._data:
+                        bits += _get_bits(self._data[name], start, stop)
 
-        return int(bits, 2)
+            self._int = int(bits, 2)
+        return self._int
 
     @property
     def name(self):
@@ -394,17 +406,36 @@ class IRCode(object):
 
     @property
     def hexdecimal(self):
-        res = hex(int(self))[2:].upper().rstrip('L')
-        return '0x' + res.zfill(len(res) + (len(res) % 2))
+        if self._hex is None:
+            res = hex(int(self))[2:].upper().rstrip('L')
+            self._hex = '0x' + res.zfill(len(res) + (len(res) % 2))
+        return self._hex
 
     def __eq__(self, other):
         if isinstance(other, list):
-            if len(other) != len(self.original_rlc):
-                return False
-
-            for i in range(len(other)):
-                if not self.decoder._match(other[i], self._normalized_rlc[i]):
+            if isinstance(other[0], list):
+                if len(other) != len(self._normalized_rlc):
                     return False
+
+                for i in range(len(other)):
+                    rlc1 = other[i]
+                    rlc2 = self._normalized_rlc[i]
+
+                    if len(rlc1) != len(rlc2):
+                        return False
+
+                    for j in range(len(rlc1)):
+                        if not self.decoder._match(rlc1[j], rlc2[j]):
+                            return False
+            else:
+                if len(self._normalized_rlc) > 1:
+                    return False
+                if len(self._normalized_rlc[0]) != len(other):
+                    return False
+
+                for i in range(len(other)):
+                    if not self.decoder._match(other[i], self._normalized_rlc[0][i]):
+                        return False
 
             return True
 

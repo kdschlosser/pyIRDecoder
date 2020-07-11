@@ -74,10 +74,10 @@ class RC6M16(protocol_base.IrProtocolBase):
             ):
                 return self._last_code
 
+            last_code = self._last_code
             self._last_code.repeat_timer.stop()
 
-            if self._last_code == code:
-                self._last_code = None
+            if last_code == code:
                 raise RepeatLeadOut
 
         if code.c0 != 1:

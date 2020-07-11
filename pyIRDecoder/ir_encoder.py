@@ -44,8 +44,6 @@ from .bryston import Bryston  # NOQA
 from .canalsat import CanalSat  # NOQA
 from .canalsatld import CanalSatLD  # NOQA
 from .denon import Denon  # NOQA
-from .denon1 import Denon1  # NOQA
-from .denon2 import Denon2  # NOQA
 from .denon_k import DenonK  # NOQA
 from .dgtec import Dgtec  # NOQA
 from .digivision import Digivision  # NOQA
@@ -272,14 +270,6 @@ class IREncoder(object):
     @property
     def Denon(self):
         return Denon
-
-    @property
-    def Denon1(self):
-        return Denon1
-
-    @property
-    def Denon2(self):
-        return Denon2
 
     @property
     def DenonK(self):

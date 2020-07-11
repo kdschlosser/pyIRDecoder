@@ -81,7 +81,9 @@ class IrProtocolBase(object):
     repeat_timeout = 0
 
     def __init__(self, xml=None):
-        self._last_code = None
+        import threading
+        self.__last_code = None
+        self.__code_lock = threading.RLock()
         self._enabled = True
         self._tolerance = 1
         self._frequency_tolerance = 2
@@ -103,14 +105,14 @@ class IrProtocolBase(object):
 
         if self.repeat_timeout == 0:
             if self._repeat_lead_out and self._repeat_lead_out[-1] > 0:
-                self.repeat_timeout = self._repeat_lead_out[-1] + 10000
+                self.repeat_timeout = self._repeat_lead_out[-1]
 
             elif not self._repeat_bursts and (self._repeat_lead_in or self._repeat_lead_out):
                 tt = sum(abs(item) for item in self._repeat_lead_in[:] + self._repeat_lead_out[:])
-                self.repeat_timeout = tt + 10000
+                self.repeat_timeout = tt
 
             elif self._lead_out and self._lead_out[-1] > 0:
-                self.repeat_timeout = self._lead_out[-1] + 10000
+                self.repeat_timeout = self._lead_out[-1]
 
         if xml is not None:
             self._enabled = xml.enabled
@@ -122,6 +124,16 @@ class IrProtocolBase(object):
                 code.save()
 
         self._xml = xml
+
+    @property
+    def _last_code(self):
+        with self.__code_lock:
+            return self.__last_code
+
+    @_last_code.setter
+    def _last_code(self, value):
+        with self.__code_lock:
+            self.__last_code = value
 
     def __iter__(self):
         for code in self._saved_codes:
@@ -214,9 +226,8 @@ class IrProtocolBase(object):
 
         return []
 
-    def __call__(self, parent, xml=None):
-        cls = self.__class__(xml)
-        cls._parent = parent
+    def __call__(self):
+        cls = self.__class__()
         return cls
 
     @property
@@ -247,8 +258,9 @@ class IrProtocolBase(object):
     def name(self):
         return self.__class__.__name__
 
-    def reset(self):
-        self._last_code = None
+    def reset(self, code):
+        if self._last_code is not None and self._last_code == code:
+            self._last_code = None
 
     def _test_decode(self, rlc=None, params=None):
         print(self.__class__.__name__, 'decode test.....')
@@ -386,41 +398,42 @@ class IrProtocolBase(object):
         return packet[:]
 
     def decode(self, data, frequency=0):
-        if self._last_code is not None and (
-            self._repeat_lead_in or
-            self._repeat_lead_out
-        ):
-            try:
-                code = code_wrapper.CodeWrapper(
-                    self.encoding,
-                    self._repeat_lead_in[:],
-                    self._repeat_lead_out[:],
-                    [],
-                    self._repeat_bursts[:],
-                    self.tolerance,
-                    data[:]
-                )
+        with self.__code_lock:
+            if self._last_code is not None and (
+                self._repeat_lead_in or
+                self._repeat_lead_out
+            ):
+                try:
+                    code = code_wrapper.CodeWrapper(
+                        self.encoding,
+                        self._repeat_lead_in[:],
+                        self._repeat_lead_out[:],
+                        [],
+                        self._repeat_bursts[:],
+                        self.tolerance,
+                        data[:]
+                    )
 
-                if self._repeat_bursts and self.__class__.decode == IrProtocolBase.decode:
-                    params = dict(frequency=self.frequency)
-                    for name, start, stop in self._parameters:
-                        params[name] = code.get_value(start, stop)
+                    if self._repeat_bursts and self.__class__.decode == IrProtocolBase.decode:
+                        params = dict(frequency=self.frequency)
+                        for name, start, stop in self._parameters:
+                            params[name] = code.get_value(start, stop)
 
-                    c = IRCode(self, code.original_code, list(code), params)
-                    c._code = code
+                        c = IRCode(self, code.original_code, list(code), params)
+                        c._code = code
 
-                    if c == self._last_code:
-                        self._last_code._code = code
-                        return self._last_code
-                    else:
-                        self._last_code.repeat_timer.stop()
-                        raise DecodeError
+                        if c == self._last_code:
+                            self._last_code._code = code
+                            return self._last_code
+                        else:
+                            self._last_code.repeat_timer.stop()
+                            raise DecodeError
 
-                self._last_code._code = code
-                return self._last_code
+                    self._last_code._code = code
+                    return self._last_code
 
-            except DecodeError:
-                pass
+                except DecodeError:
+                    pass
 
         code = code_wrapper.CodeWrapper(
             self.encoding,
@@ -445,13 +458,14 @@ class IrProtocolBase(object):
         c._code = code
 
         if self.__class__.decode == IrProtocolBase.decode:
-            if self._last_code is not None:
-                if self._last_code == c:
-                    return self._last_code
+            with self.__code_lock:
+                if self._last_code is not None:
+                    if self._last_code == c:
+                        return self._last_code
 
-                self._last_code.repeat_timer.stop()
+                    self._last_code.repeat_timer.stop()
 
-            self._last_code = c
+                self._last_code = c
 
         return c
 

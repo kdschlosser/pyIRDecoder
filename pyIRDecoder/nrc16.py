@@ -66,12 +66,6 @@ class NRC16(protocol_base.IrProtocolBase):
         ['function', 0, 255],
     ]
 
-    repeat_timeout = 129500
-
-    def reset(self):
-        self._lead_out = [-15000]
-        self._last_code = None
-
     def decode(self, data, frequency=0):
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
