@@ -49,6 +49,12 @@ class Anthem(protocol_base.IrProtocolBase):
     _lead_out = [TIMING, -25000]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
+    _code_order = [
+        ['D', 8],
+        ['S', 8],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 7],
         ['S', 8, 15],

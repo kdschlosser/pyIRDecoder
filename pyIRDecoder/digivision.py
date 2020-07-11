@@ -49,6 +49,13 @@ class Digivision(protocol_base.IrProtocolBase):
     _repeat_lead_in = [TIMING * 20, -TIMING * 20]
     _repeat_lead_out = [TIMING * 3, 108000]
 
+    _code_order = [
+        ['D', 8],
+        ['DEVICE2', 8],
+        ['DEVICE3', 8],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 7],
         ['DEVICE2', 8, 15],

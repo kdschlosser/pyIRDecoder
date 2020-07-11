@@ -46,9 +46,14 @@ class MCIR2mouse(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['MIDDLE', 5],
+        ['Y', 7],
+        ['X', 7],
+        ['RIGHT', 1],
+        ['LEFT', 1],
+        ['F', 5]
+    ]
 
     _parameters = [
         ['C0', 0, 7],

@@ -51,9 +51,14 @@ class TeacK(protocol_base.IrProtocolBase):
 
     _repeat_lead_in = [TIMING * 8, -TIMING * 8]
     _repeat_lead_out = [TIMING, -TIMING * 100]
-    _repeat_bursts = []
 
-    # 67:8,83:8,X:4,D:4,S:8,F:8,T:8
+    _code_order = [
+        ['E', 4],
+        ['D', 4],
+        ['S', 8],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['C0', 0, 7],
         ['C1', 8, 15],

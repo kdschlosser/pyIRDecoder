@@ -43,6 +43,11 @@ class Bryston(protocol_base.IrProtocolBase):
     _lead_out = [-18000]
     _bursts = [[TIMING, -TIMING * 6], [TIMING * 6, -TIMING]]
 
+    _code_order = [
+        ['D', 10],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 9],
         ['F', 10, 17]

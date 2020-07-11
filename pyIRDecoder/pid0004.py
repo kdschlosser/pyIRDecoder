@@ -46,9 +46,9 @@ class PID0004(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[12, -130], [12, -372]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['F', 6],
+    ]
 
     _parameters = [
         ['F', 0, 5],

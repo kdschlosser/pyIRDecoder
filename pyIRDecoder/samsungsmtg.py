@@ -46,9 +46,11 @@ class SamsungSMTG(protocol_base.IrProtocolBase):
     _middle_timings = [(TIMING, -4497)]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 16],
+        ['S', 4],
+        ['F', 16],
+    ]
 
     _parameters = [
         ['D', 0, 15],

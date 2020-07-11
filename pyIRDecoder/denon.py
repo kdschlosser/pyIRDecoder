@@ -44,6 +44,11 @@ class Denon(protocol_base.IrProtocolBase):
     _middle_timings = [(TIMING, -TIMING * 165)]
     _bursts = [[TIMING, -TIMING * 3], [TIMING, -TIMING * 7]]
 
+    _code_order = [
+        ['D', 5],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 4],
         ['F', 5, 12],

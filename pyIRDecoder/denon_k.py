@@ -45,6 +45,12 @@ class DenonK(protocol_base.IrProtocolBase):
     _lead_out = [TIMING, -TIMING * 173]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
+    _code_order = [
+        ['D', 4],
+        ['S', 4],
+        ['F', 12]
+    ]
+
     _parameters = [
         ['C0', 0, 7],
         ['C1', 8, 15],

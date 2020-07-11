@@ -46,9 +46,10 @@ class SIM2(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING * 3, -TIMING * 3], [TIMING * 3, -TIMING * 7]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 8],
+        ['F', 8],
+    ]
 
     _parameters = [
         ['D', 0, 7],

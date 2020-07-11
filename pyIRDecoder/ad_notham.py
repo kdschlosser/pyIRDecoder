@@ -43,6 +43,11 @@ class AdNotham(protocol_base.IrProtocolBase):
     _lead_out = [114000]
     _bursts = [[TIMING, -TIMING], [-TIMING,  TIMING]]
 
+    _code_order = [
+        ['D', 6],
+        ['F', 6]
+    ]
+
     _parameters = [
         ['D', 0, 5],
         ['F', 6, 11],

@@ -46,9 +46,10 @@ class Elan(protocol_base.IrProtocolBase):
     _middle_timings = [(TIMING * 2, -TIMING * 2)]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 2]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 8],
+        ['F', 8]
+    ]
 
     _parameters = [
         ['D', 0, 7],

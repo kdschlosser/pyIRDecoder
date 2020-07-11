@@ -50,6 +50,12 @@ class DishNetwork(protocol_base.IrProtocolBase):
     _repeat_lead_out = []
     _repeat_bursts = []
 
+    _code_order = [
+        ['F', 6],
+        ['S', 5],
+        ['D', 5]
+    ]
+
     _parameters = [
         ['F', 0, 5],
         ['S', 6, 10],

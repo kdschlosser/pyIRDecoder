@@ -46,9 +46,11 @@ class MitsubishiK(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 8],
+        ['S', 8],
+        ['F', 8]
+    ]
 
     _parameters = [
         ['C0', 0, 7],

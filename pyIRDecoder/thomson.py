@@ -46,9 +46,10 @@ class Thomson(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING * 4], [TIMING, -TIMING * 9]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 4],
+        ['F', 6],
+    ]
 
     # D:4,(1-T):1,D:1:4,F:6
     _parameters = [

@@ -50,6 +50,11 @@ class GXB(protocol_base.IrProtocolBase):
     _repeat_lead_out = []
     _repeat_bursts = []
 
+    _code_order = [
+        ['D', 4],
+        ['F', 8],
+    ]
+
     _parameters = [
         ['D', 0, 3],
         ['F', 4, 11],

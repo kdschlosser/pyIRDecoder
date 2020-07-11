@@ -48,8 +48,12 @@ class Ortek(protocol_base.IrProtocolBase):
 
     _repeat_lead_in = [TIMING * 16, -TIMING * 4, 1, -TIMING * 3]
     _repeat_lead_out = [TIMING, 108000]
-    _repeat_bursts = []
 
+    _code_order = [
+        ['D', 8],
+        ['S', 8],
+        ['F', 8],
+    ]
     _parameters = [
         ['D', 0, 7],
         ['S', 8, 15],

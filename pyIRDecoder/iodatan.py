@@ -50,6 +50,15 @@ class IODATAn(protocol_base.IrProtocolBase):
     _repeat_lead_out = []
     _repeat_bursts = []
 
+    _code_order = [
+        ['X', 7],
+        ['D', 7],
+        ['S', 7],
+        ['Y', 7],
+        ['F', 8],
+        ['E', 4]
+    ]
+
     _parameters = [
         ['X', 0, 6],
         ['D', 7, 13],

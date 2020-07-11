@@ -43,6 +43,11 @@ class Akai(protocol_base.IrProtocolBase):
     _lead_out = [TIMING, 25300]
     _bursts = [[TIMING, -int(round(TIMING * 2.6))], [TIMING, -int(round(TIMING * 6.3))]]
 
+    _code_order = [
+        ['D', 3],
+        ['F', 7]
+    ]
+
     _parameters = [
         ['D', 0, 2],
         ['F', 3, 9],

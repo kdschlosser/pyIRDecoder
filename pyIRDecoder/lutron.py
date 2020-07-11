@@ -42,14 +42,11 @@ class Lutron(protocol_base.IrProtocolBase):
     bit_count = 36
     encoding = 'msb'
 
-    _lead_in = []
-    _lead_out = []
-    _middle_timings = []
     _bursts = [-TIMING, TIMING]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['X', 24],
+    ]
 
     _parameters = [
         ['C0', 0, 7],

@@ -43,9 +43,10 @@ class Somfy(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[308, -881], [669, -520]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['F', 2],
+        ['D', 3],
+    ]
 
     _parameters = [
         ['F', 0, 1],

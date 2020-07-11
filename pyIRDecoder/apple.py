@@ -49,7 +49,13 @@ class Apple(protocol_base.IrProtocolBase):
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
     _repeat_lead_in = [TIMING * 16, -TIMING * 4]
-    _repeat_lead_out = [TIMING, -96156]
+    _repeat_lead_out = [TIMING, 108000]
+
+    _code_order = [
+        ['D', 8],
+        ['F', 7],
+        ['PAIR_ID', 8]
+    ]
 
     _parameters = [
         ['D', 0, 7],

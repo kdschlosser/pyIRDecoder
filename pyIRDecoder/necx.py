@@ -50,6 +50,12 @@ class NECx(protocol_base.IrProtocolBase):
     _repeat_lead_out = [TIMING, 108000]
     _repeat_bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
+    _code_order = [
+        ['D', 8],
+        ['S', 8],
+        ['F', 8],
+    ]
+
     _parameters = [
         ['D', 0, 7],
         ['S', 8, 15],

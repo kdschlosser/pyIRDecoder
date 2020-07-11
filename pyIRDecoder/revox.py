@@ -46,16 +46,17 @@ class Revox(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING * 9], [TIMING, -TIMING * 19]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 4],
+        ['F', 6],
+    ]
 
     _parameters = [
         ['C0', 0, 0],
         ['D', 1, 4],
         ['F', 5, 10]
     ]
-    # [D:0..15,F:0..63]
+
     encode_parameters = [
         ['device', 0, 15],
         ['function', 0, 63],

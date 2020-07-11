@@ -49,9 +49,14 @@ class Rs200(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[int(TIMING * 50), int(-TIMING * 120)], [int(TIMING * 21), int(-TIMING * 120)]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['H4', 2],
+        ['H3', 2],
+        ['H2', 2],
+        ['H1', 2],
+        ['D', 3],
+        ['F', 2]
+    ]
 
     _parameters = [
         ['C0', 0, 5],

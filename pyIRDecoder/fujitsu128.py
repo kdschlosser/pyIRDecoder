@@ -45,9 +45,25 @@ class Fujitsu128(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['A0', 8],
+        ['A1', 8],
+        ['A2', 8],
+        ['A3', 8],
+        ['A4', 8],
+        ['A5', 8],
+        ['A6', 8],
+        ['A7', 8],
+        ['A8', 8],
+        ['A9', 8],
+        ['A10', 8],
+        ['A11', 8],
+        ['A12', 8],
+        ['A13', 8],
+        ['A14', 8],
+        ['A15', 8],
+    ]
+
     _parameters = [
         ['A0', 0, 7],
         ['A1', 8, 15],

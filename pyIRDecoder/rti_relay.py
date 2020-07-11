@@ -46,9 +46,10 @@ class RTIRelay(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [-TIMING, TIMING]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['F', 1],
+        ['D', 8],
+    ]
 
     _parameters = [
         ['A', 0, 30],

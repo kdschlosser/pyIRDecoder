@@ -45,9 +45,12 @@ class Sony20(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING * 2, -TIMING]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['F', 7],
+        ['D', 5],
+        ['S', 8],
+    ]
+
     _parameters = [
         ['F', 0, 6],
         ['D', 7, 11],

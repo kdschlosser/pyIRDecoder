@@ -48,6 +48,11 @@ class Amino(protocol_base.IrProtocolBase):
     _lead_out = [-79000]
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
+    _code_order = [
+        ['D', 4],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 3],
         ['C0', 4, 4],  # 1

@@ -46,9 +46,10 @@ class Sunfire(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING * 3, -TIMING]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 4],
+        ['F', 8],
+    ]
 
     _parameters = [
         ['D', 0, 3],

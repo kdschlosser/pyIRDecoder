@@ -46,9 +46,11 @@ class Roku(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 8],
+        ['S', 8],
+        ['F', 7],
+    ]
 
     _parameters = [
         ['D', 0, 7],
@@ -78,20 +80,15 @@ class Roku(protocol_base.IrProtocolBase):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         if self._last_code is not None:
-            if (
-                self._last_code == code and
-                (
-                    self._last_code.toggle == code.toggle or
-                    (
-                        self._lst_code.toggle == code.t1 and
-                        self._last_code.t1 == code.toggle
-                    )
-                )
+            if self._last_code != code:
+                pass
+            elif (
+                self._last_code.toggle == code.toggle or
+                (self._last_code.toggle == code.t1 and self._last_code.t1 == code.toggle)
             ):
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
-            self._last_code = None
 
         func_checksum = self._calc_checksum(code.function)
 

@@ -50,6 +50,11 @@ class Kathrein(protocol_base.IrProtocolBase):
     _repeat_lead_out = [TIMING, 105000]
     _repeat_bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
+    _code_order = [
+        ['D', 4],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 3],
         ['D_CHECKSUM', 4, 7],

@@ -46,9 +46,10 @@ class Logitech(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING * 3, -TIMING * 4], [TIMING * 3, -TIMING * 8]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 4],
+        ['F', 8],
+    ]
 
     _parameters = [
         ['D', 0, 3],

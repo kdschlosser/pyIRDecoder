@@ -45,6 +45,10 @@ class Bose(protocol_base.IrProtocolBase):
     _lead_out = [TIMING, -50000]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
+    _code_order = [
+        ['F', 8]
+    ]
+
     _parameters = [
         ['F', 0, 7],
         ['F_CHECKSUM', 8, 15],

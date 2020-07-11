@@ -48,13 +48,20 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['OEM1', 8],
+        ['OEM2', 8],
+        ['D', 4],
+        ['S', 8],
+        ['E', 8],
+        ['F', 8],
+        ['G', 8]
+    ]
+
     _parameters = [
         ['OEM1', 0, 7],
         ['OEM2', 8, 15],
-        ['H', 16, 19],
+        ['CHECKSUM', 16, 19],
         ['D', 20, 23],
         ['S', 24, 31],
         ['E', 32, 39],
@@ -73,8 +80,8 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
     ]
 
     def _calc_checksum(self, oem1, oem2):
-        h = ((oem1 ^ oem2) >> 4) ^ (oem1 ^ oem2)
-        return self._get_bits(h, 0, 3)
+        checksum = ((oem1 ^ oem2) >> 4) ^ (oem1 ^ oem2)
+        return self._get_bits(checksum, 0, 3)
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
@@ -90,12 +97,12 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
         if code.oem1 == 20 and code.oem2 == 99:
             raise DecodeError('Fijitsu56 protocol')
 
-        h = self._calc_checksum(
+        checksum = self._calc_checksum(
             code.oem1,
             code.oem2
         )
 
-        if h != code.h:
+        if checksum != code.checksum:
             raise DecodeError('Checksum failed')
 
         self._last_code = code
@@ -134,12 +141,12 @@ class Kaseikyo56(protocol_base.IrProtocolBase):
                 repeat_count
             )
 
-        h = self._calc_checksum(oem1, oem2)
+        checksum = self._calc_checksum(oem1, oem2)
 
         packet = self._build_packet(
             list(self._get_timing(oem1, i) for i in range(8)),
             list(self._get_timing(oem2, i) for i in range(8)),
-            list(self._get_timing(h, i) for i in range(4)),
+            list(self._get_timing(checksum, i) for i in range(4)),
             list(self._get_timing(device, i) for i in range(4)),
             list(self._get_timing(sub_device, i) for i in range(8)),
             list(self._get_timing(extended_function, i) for i in range(8)),

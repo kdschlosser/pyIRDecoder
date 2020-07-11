@@ -45,6 +45,12 @@ class DishPlayer(protocol_base.IrProtocolBase):
     _lead_out = [TIMING, -TIMING * 11]
     _bursts = [[TIMING, -TIMING * 5], [TIMING, -TIMING * 3]]
 
+    _code_order = [
+        ['F', 6],
+        ['S', 5],
+        ['D', 2]
+    ]
+
     _parameters = [
         ['F', 0, 5],
         ['S', 6, 10],

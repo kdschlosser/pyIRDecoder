@@ -50,6 +50,10 @@ class Entone(protocol_base.IrProtocolBase):
     _repeat_lead_out = [TIMING, 108000]
     _repeat_bursts = []
 
+    _code_order = [
+        ['F', 8]
+    ]
+
     _parameters = [
         ['C0', 0, 0],
         ['M', 1, 3],

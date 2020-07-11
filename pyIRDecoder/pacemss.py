@@ -47,6 +47,11 @@ class PaceMSS(protocol_base.IrProtocolBase):
 
     _current_toggle = 0
 
+    _code_order = [
+        ['D', 1],
+        ['F', 8],
+    ]
+
     _parameters = [
         ['T', 0, 0],
         ['D', 1, 1],

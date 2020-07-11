@@ -49,6 +49,11 @@ class JVC(protocol_base.IrProtocolBase):
     _repeat_lead_out = [TIMING, 46420]
     _repeat_bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
+    _code_order = [
+        ['D', 8],
+        ['F', 8],
+    ]
+
     _parameters = [
         ['D', 0, 7],
         ['F', 8, 15],

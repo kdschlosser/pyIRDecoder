@@ -47,12 +47,12 @@ class PID0083(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING * 3, TIMING, -TIMING * 7], [TIMING, -TIMING * 7, TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['F', 5],
+    ]
 
     _parameters = [
-        ['F', 0, 5]
+        ['F', 0, 4]
     ]
     # [F:0..31]
     encode_parameters = [

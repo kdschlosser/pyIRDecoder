@@ -47,6 +47,12 @@ class Akord(protocol_base.IrProtocolBase):
     _repeat_lead_in = [TIMING * 18, -TIMING * 5]
     _repeat_lead_out = [TIMING, -78000]
 
+    _code_order = [
+        ['D', 8],
+        ['S', 8],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 7],
         ['S', 8, 15],

@@ -50,6 +50,9 @@ class PID0001(protocol_base.IrProtocolBase):
     _repeat_lead_out = [1, -28000]
     _repeat_bursts = [[24, -9314], [24, -13486]]
 
+    _code_order = [
+        ['F', 5],
+    ]
     _parameters = [
         ['F', 0, 4],
     ]

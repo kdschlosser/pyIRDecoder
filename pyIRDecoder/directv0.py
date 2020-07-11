@@ -44,6 +44,10 @@ class DirecTV0(protocol_base.IrProtocolBase):
     _lead_out = [TIMING, -TIMING * 15]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 2], [TIMING * 2, -TIMING], [TIMING * 2, -TIMING * 2]]
 
+    _code_order = [
+        ['D', 8],
+        ['F', 8]
+    ]
     _parameters = [
         ['D', 0, 3],
         ['F', 4, 11],

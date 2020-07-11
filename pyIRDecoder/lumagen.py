@@ -48,7 +48,11 @@ class Lumagen(protocol_base.IrProtocolBase):
 
     _repeat_lead_in = [TIMING * 16, -TIMING * 8]
     _repeat_lead_out = [TIMING, 108000]
-    _repeat_bursts = []
+
+    _code_order = [
+        ['D', 4],
+        ['F', 7],
+    ]
 
     _parameters = [
         ['D', 0, 3],

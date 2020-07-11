@@ -46,10 +46,11 @@ class RCA(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING * 2], [TIMING, -TIMING * 4]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
-    # D:4,F:8,~D:4,~F:8
+    _code_order = [
+        ['D', 4],
+        ['F', 8],
+    ]
+
     _parameters = [
         ['D', 0, 3],
         ['F', 4, 11],

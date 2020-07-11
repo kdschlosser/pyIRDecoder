@@ -46,9 +46,11 @@ class Humax4Phase(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[-TIMING * 2, TIMING * 2], [-TIMING * 3, TIMING], [TIMING, -TIMING * 3], [TIMING * 2, -TIMING * 2]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 6],
+        ['S', 6],
+        ['F', 7]
+    ]
 
     _parameters = [
         ['D', 0, 5],

@@ -46,10 +46,13 @@ class Samsung36(protocol_base.IrProtocolBase):
     _middle_timings = [(TIMING, -TIMING * 9)]
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
-    # D:8,S:8,1,-9,E:4,F:8,~F:8
+    _code_order = [
+        ['D', 8],
+        ['S', 8],
+        ['E', 4],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 7],
         ['S', 8, 15],

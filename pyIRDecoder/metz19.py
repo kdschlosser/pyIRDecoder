@@ -46,9 +46,11 @@ class Metz19(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING * 4, -TIMING * 9], [TIMING * 4, -TIMING * 16]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 3],
+        ['F', 6],
+    ]
+
     _current_toggle = 0
 
     _parameters = [

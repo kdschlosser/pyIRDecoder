@@ -182,15 +182,15 @@ from .thomson7 import Thomson7  # NOQA
 from .tivo import Tivo  # NOQA
 from .velleman import Velleman  # NOQA
 from .viewstar import Viewstar  # NOQA
-# whynter
+from .whynter import Whynter  # NOQA
 # x10
 # x10n
 # x10_18
 # x10_8
 from .xbox_360 import XBox360  # NOQA
 from .xbox_one import XBoxOne  # NOQA
-# zaptor36
-# zaptor56
+from .zaptor36 import Zaptor36  # NOQA
+from .zaptor56 import Zaptor56  # NOQA
 
 
 class IREncoder(object):
@@ -818,6 +818,19 @@ class IREncoder(object):
     @property
     def Viewstar(self):
         return Viewstar
+
+    @property
+    def Whynter(self):
+        return Whynter
+
+    @property
+    def Zaptor36(self):
+        return Zaptor36
+
+    @property
+    def Zaptor56(self):
+        return Zaptor56
+
 
     @property
     def XBox360(self):

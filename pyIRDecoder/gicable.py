@@ -50,6 +50,11 @@ class GICable(protocol_base.IrProtocolBase):
     _repeat_lead_out = [TIMING, -TIMING * -178]
     _repeat_bursts = []
 
+    _code_order = [
+        ['F', 8],
+        ['D', 4]
+    ]
+
     _parameters = [
         ['F', 0, 7],
         ['D', 8, 11],

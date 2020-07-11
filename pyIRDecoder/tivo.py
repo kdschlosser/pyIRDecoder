@@ -48,19 +48,23 @@ class Tivo(protocol_base.IrProtocolBase):
 
     _repeat_lead_in = [TIMING * 16, -TIMING * 4]
     _repeat_lead_out = [TIMING, -TIMING * 173]
-    _repeat_bursts = []
+
+    _code_order = [
+        ['F', 8],
+        ['E', 4]
+    ]
 
     _parameters = [
         ['D', 0, 7],
         ['S', 8, 15],
         ['F', 16, 23],
-        ['U', 24, 27],
+        ['E', 24, 27],
         ['F_CHECKSUM', 28, 31]
     ]
     # [D:133..133=133,S:48..48=48,F:0..255,U:0..15]
     encode_parameters = [
         ['function', 0, 255],
-        ['u', 0, 15]
+        ['extended_function', 0, 15]
     ]
 
     def __init__(self, xml=None):
@@ -89,7 +93,7 @@ class Tivo(protocol_base.IrProtocolBase):
         self._last_code = code
         return code
 
-    def encode(self, function, u, repeat_count=0):
+    def encode(self, function, extended_function, repeat_count=0):
         device = 133
         sub_device = 48
         func_checksum = self._calc_checksum(function)
@@ -98,13 +102,13 @@ class Tivo(protocol_base.IrProtocolBase):
             list(self._get_timing(device, i) for i in range(8)),
             list(self._get_timing(sub_device, i) for i in range(8)),
             list(self._get_timing(function, i) for i in range(8)),
-            list(self._get_timing(u, i) for i in range(4)),
+            list(self._get_timing(extended_function, i) for i in range(4)),
             list(self._get_timing(func_checksum, i) for i in range(4)),
         )
 
         params = dict(
             frequency=self.frequency,
-            U=u,
+            E=extended_function,
             F=function,
         )
 

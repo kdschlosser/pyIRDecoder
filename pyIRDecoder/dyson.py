@@ -54,6 +54,11 @@ class Dyson(protocol_base.IrProtocolBase):
 
     repeat_timeout = (TIMING * 9) + 70000
 
+    _code_order = [
+        ['D', 7],
+        ['F', 6]
+    ]
+
     _parameters = [
         ['D', 0, 6],
         ['F', 7, 12],

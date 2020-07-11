@@ -50,6 +50,12 @@ class GuangZhou(protocol_base.IrProtocolBase):
     _repeat_lead_out = [TIMING * 3, 108000]
     _repeat_bursts = []
 
+    _code_order = [
+        ['D', 6],
+        ['F', 8],
+        ['S', 8],
+    ]
+
     _parameters = [
         ['T', 0, 1],
         ['D', 2, 7],

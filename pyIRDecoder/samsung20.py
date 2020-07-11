@@ -46,10 +46,12 @@ class Samsung20(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
-    # D:6,S:6,F:8
+    _code_order = [
+        ['D', 6],
+        ['S', 6],
+        ['F', 8],
+    ]
+
     _parameters = [
         ['D', 0, 5],
         ['S', 6, 11],

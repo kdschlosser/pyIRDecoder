@@ -50,6 +50,11 @@ class Blaupunkt(protocol_base.IrProtocolBase):
     _lead_out = [-TIMING * 44]
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
+    _code_order = [
+        ['F', 6],
+        ['D', 3]
+    ]
+
     _parameters = [
         ['C0', 0, 0],
         ['F', 1, 6],

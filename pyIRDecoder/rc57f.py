@@ -46,9 +46,10 @@ class RC57F(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [-TIMING, TIMING]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 5],
+        ['F', 7],
+    ]
 
     _parameters = [
         ['D1', 0, 0],

@@ -46,9 +46,9 @@ class Jerrold(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -7500], [TIMING, -11500]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['F', 5],
+    ]
 
     _parameters = [
         ['F', 0, 4],

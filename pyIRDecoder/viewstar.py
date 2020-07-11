@@ -46,9 +46,9 @@ class Viewstar(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING * 8], [TIMING, -TIMING * 5]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['F', 5],
+    ]
 
     _parameters = [
         ['F', 0, 4]

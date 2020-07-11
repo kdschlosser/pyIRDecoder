@@ -45,9 +45,14 @@ class Fujitsu56(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['E', 4],
+        ['D', 8],
+        ['S', 8],
+        ['X', 8],
+        ['F', 8]
+    ]
+
     _parameters = [
         ['C0', 0, 7],
         ['C1', 8, 15],

@@ -49,6 +49,11 @@ class F120(protocol_base.IrProtocolBase):
     _repeat_lead_out = []
     _repeat_bursts = []
 
+    _code_order = [
+        ['D', 3],
+        ['F', 8],
+    ]
+
     _parameters = [
         ['D', 0, 2],
         ['H', 3, 3],

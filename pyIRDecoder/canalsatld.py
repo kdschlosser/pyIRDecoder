@@ -45,6 +45,12 @@ class CanalSatLD(protocol_base.IrProtocolBase):
     _lead_out = [-85000]
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
+    _code_order = [
+        ['D', 7],
+        ['S', 6],
+        ['F', 6]
+    ]
+
     _parameters = [
         ['D', 0, 6],
         ['S', 7, 12],

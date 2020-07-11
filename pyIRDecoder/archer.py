@@ -43,6 +43,10 @@ class Archer(protocol_base.IrProtocolBase):
     _lead_out = [TIMING, -9700]
     _bursts = [[TIMING, -3300], [TIMING, -4700]]
 
+    _code_order = [
+        ['F', 5]
+    ]
+
     _parameters = [
         ['F', 0, 4],
     ]

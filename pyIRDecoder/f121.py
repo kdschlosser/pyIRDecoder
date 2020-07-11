@@ -49,9 +49,10 @@ class F121(protocol_base.IrProtocolBase):
     _middle_timings = [-TIMING * 34, -TIMING * 88, -TIMING * 34]
     _bursts = [[TIMING, -TIMING * 3], [TIMING * 3, -TIMING]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 3],
+        ['F', 8],
+    ]
 
     _parameters = [
         ['D', 0, 2],

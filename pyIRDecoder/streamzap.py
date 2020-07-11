@@ -83,9 +83,10 @@ class StreamZap(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [-TIMING, TIMING]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['D', 6],
+        ['F', 6],
+    ]
 
     _parameters = [
         ['F_CHECKSUM', 0, 0],

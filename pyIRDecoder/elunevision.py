@@ -50,6 +50,10 @@ class Elunevision(protocol_base.IrProtocolBase):
     _repeat_lead_out = []
     _repeat_bursts = []
 
+    _code_order = [
+        ['F', 8]
+    ]
+
     _parameters = [
         ['D', 0, 23],
         ['F', 24, 31],

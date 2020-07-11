@@ -107,9 +107,9 @@ class MCE(protocol_base.IrProtocolBase):
     _middle_timings = [(-TIMING * 2, TIMING * 2)]
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
-    _repeat_lead_in = []
-    _repeat_lead_out = []
-    _repeat_bursts = []
+    _code_order = [
+        ['F', 8],
+    ]
 
     _parameters = [
         ['C0', 0, 0],

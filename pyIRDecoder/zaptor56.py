@@ -25,14 +25,19 @@
 # ***********************************************************************************
 
 # Local imports
-from . import protocol_base
+from . import zaptor36
 
 
-class Zaptor56(protocol_base.IRPNotation):
+class Zaptor56(zaptor36.Zaptor36.__class__):
     """
     IR decoder for the Zaptor56 protocol.
     """
-    irp = '{56k,330,msb}<-1,1|1,-1>(8,-6,2,D:8,T:1,S:7,F:8,E:4,(((D:4)+(D:4:4)+(S:4)+(S:3:4)+(8*T)+(F:4)+(F:4:4)+E)&15):4,-74m)'
+    irp = (
+        '{56k,330,msb}<-1,1|1,-1>(8,-6,2,D:8,T:1,S:7,F:8,E:4,C:4,-74m)'
+        '{C=(((D:4)+(D:4:4)+(S:4)+(S:3:4)+(8*T)+(F:4)+(F:4:4)+E)&15)}'
+    )
+
+    frequency = 56000
 
 
 Zaptor56 = Zaptor56()

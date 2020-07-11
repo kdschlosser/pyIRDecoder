@@ -38,7 +38,7 @@ class Timer(object):
         self.process_thread_worker = thread_worker.ProcessThreadWorker()
         self._duration = duration
         self._adjusted_duration = duration
-        self.timer = None
+        self.timer = high_precision_timers.TimerUS()
 
     @property
     def duration(self):
@@ -54,7 +54,6 @@ class Timer(object):
 
         if self.timer.elapsed() >= self.adjusted_duration:
             self.process_thread_worker.add(self.func)
-            self.timer = None
             return True
 
         return False
@@ -65,17 +64,13 @@ class Timer(object):
             self.process_thread_worker.add(self.func)
 
     def start(self, timer):
-        self._adjusted_duration = self.duration + int(self.duration * 0.20) + timer.elapsed()
-
-        if self.timer is None:
-            self.timer = high_precision_timers.TimerUS()
-
+        self._adjusted_duration = self.duration + (self.duration * 0.20) + (timer.elapsed() * 4)
         self.timer.reset()
         self.timer_thread_worker.add(self)
 
     @property
     def is_running(self):
-        return self.timer is not None and self.timer.elapsed() < self.adjusted_duration
+        return self.timer.elapsed() < self.adjusted_duration
 
 
 class IRCode(object):
@@ -374,24 +369,16 @@ class IRCode(object):
         if self._int is None:
             bits = ''
 
-            def _get_bits(val, strt, stp):
-                bts = []
-
-                for i in range(strt, stp + 1):
-                    bts.insert(0, str(self._decoder._get_bit(val, i)))
-
-                return ''.join(bts)
-
             if 'CODE' in self._data:
                 bits += bin(self.code)[2:]
-
             else:
-                for name, start, stop in self._decoder._parameters:
-                    if name.startswith('T'):
-                        continue
-
-                    if name in self._data:
-                        bits += _get_bits(self._data[name], start, stop)
+                for param, num_bits in self._decoder._code_order:
+                    bts = bin(self._data[param])[2:].zfill(num_bits)[:num_bits]
+                    if self._decoder.encoding == 'msb':
+                        bits += bts
+                    else:
+                        for i in range(num_bits - 1, -1, -1):
+                            bits += bts[i]
 
             self._int = int(bits, 2)
         return self._int
@@ -453,9 +440,18 @@ class IRCode(object):
     def __str__(self):
         if self._name is None:
             res = []
-            for key in self.params:
-                value = getattr(self, key)
-                res += [('%X' % (value,)).zfill(2)]
+
+            if 'CODE' in self._data:
+                h = hex(self.code)[2:].upper()
+                h = h.zfill(len(h) + (len(h) % 2))
+                res += [h]
+            else:
+                for param, num_bits in self._decoder._code_order:
+                    value = self._data[param]
+                    fill = (num_bits // 8) + 1
+                    fill += fill % 2
+
+                    res += [('%X' % (value,)).zfill(fill)]
 
             return self.decoder.name + '.' + ':'.join(res)
 

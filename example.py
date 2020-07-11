@@ -27,7 +27,7 @@
 from __future__ import print_function
 import random
 import pyIRDecoder
-import time
+import traceback
 import threading
 from pyIRDecoder import high_precision_timers
 
@@ -44,111 +44,131 @@ class TestBase(object):
 
     @classmethod
     def is_enabled(cls):
-        return cls.encoder.enabled
+        return cls.decoder.enabled
 
     @classmethod
     def enable(cls, value):
-        print(cls.decoder.name, cls.decoder.enabled, value)
         cls.decoder.enabled = value
 
     @classmethod
     def test(cls):
-        if not cls.is_enabled():
-            print('skipping', cls.__name__)
-            return
+        try:
+            if not cls.is_enabled():
+                print('skipping', cls.__name__)
+                return
 
-        print('encoding', cls.__name__)
+            params = {}
+            for name, min_val, max_val in cls.encoder.encode_parameters:
 
-        params = {}
-        for name, min_val, max_val in cls.encoder.encode_parameters:
+                if hasattr(cls.encoder, name):
+                    vals = getattr(cls.encoder, name)
+                    val = vals[random.randrange(0, len(vals) - 1)]
+                else:
+                    val = random.randrange(min_val, max_val)
 
-            if hasattr(cls.encoder, name):
-                vals = getattr(cls.encoder, name)
-                val = vals[random.randrange(0, len(vals) - 1)]
-            else:
-                val = random.randrange(min_val, max_val)
+                params[name] = val
 
-            params[name] = val
+            print('encoding', cls.__name__, '0 repeats')
+            print('parameters:', params)
 
-        print(params)
-        start = high_precision_timers.TimerUS()
+            start = high_precision_timers.TimerUS()
 
-        rlc = cls.encoder.encode(**params)
+            rlc = cls.encoder.encode(**params)
 
-        stop = start.elapsed()
-        print('ir code', rlc)
-        for item in rlc:
-            print('   ', item)
+            stop = start.elapsed()
+            print('encoding duration:', stop, 'us')
+            print('rlc:')
+            print('[')
+            for item in rlc:
+                print('   ', str(item) + ',')
+            print(']')
+            print()
 
-        print('encoding time:', stop, 'us')
-        print()
-
-        start.reset()
-        rlc = cls.encoder.encode(repeat_count=random.randrange(0, 10), **params)
-        stop = start.elapsed()
-
-        print('ir code with {0} repeats'.format(rlc.repeat_count), rlc)
-        for item in rlc:
-            print('   ', item)
-
-        print('encoding time:', stop, 'us')
-        print()
-
-        print('decoding', cls.__name__)
-
-        wait_event = threading.Event()
-
-        def key_released_callback(cde):
-            wait_event.set()
-
-        code = None
-        for c in rlc:
-            if code is not None and not code.repeat_timer.is_running:
-                raise RuntimeError('repeat code not running ' + str(code))
+            repeat_count = random.randrange(1, 10)
+            print('encoding', cls.__name__, '{0} repeats'.format(repeat_count))
+            print('parameters:', params)
 
             start.reset()
-            c = ir_decoder.decode(c, rlc.frequency)
+            rlc = cls.encoder.encode(repeat_count=repeat_count, **params)
             stop = start.elapsed()
 
-            decoding_times.append(stop)
-            print('decoding time:', stop, 'us')
+            print('encoding duration:', stop, 'us')
+            print('rlc:')
+            print('[')
+            for item in rlc:
+                print('   ', str(item) + ',')
+            print(']')
+            print()
+            print()
 
-            if c is None:
-                continue
+            print('decoding', cls.__name__, '{0} repeats'.format(repeat_count))
+            print('parameters:', params)
+            print()
+            wait_event = threading.Event()
 
-            code = c
-            code.bind_released_callback(key_released_callback)
+            def key_released_callback(_):
+                wait_event.set()
 
-            wait_event.wait(code.repeat_timer.duration / 1000000.0)
+            code = None
+            for c in rlc:
+                if code is not None and not code.repeat_timer.is_running:
+                    print('REPEAT CODE TIMER EXPIRED', code)
 
-        if code is None:
-            raise RuntimeError
+                start.reset()
+                c = ir_decoder.decode(c, rlc.frequency)
 
-        if code.decoder == ir_decoder.Universal:
-            raise RuntimeError
+                if c is None:
+                    continue
 
-        if not isinstance(cls.decoder, code.decoder.__class__):
-            raise RuntimeError(code.decoder.name + ' != ' + cls.decoder.name)
+                stop = start.elapsed()
 
-        wait_event.wait(10)
+                decoding_times.append(stop)
+                print('decoding time:', stop, 'us')
 
-        print('decoded friendly', code)
-        print('decoded hexdecimal', code.hexdecimal)
-        print('code duration', code.repeat_timer.duration / 1000.0, 'ms')
+                code = c
+                code.bind_released_callback(key_released_callback)
+                wait_event.wait(code.repeat_timer.duration / 1000000.0)
 
-        if not wait_event.is_set():
-            raise RuntimeError('repeat timeout problem')
+            print()
+            if code is None:
+                raise RuntimeError
 
-        print(code, ' key released')
+            if code.decoder == ir_decoder.Universal:
+                raise RuntimeError
 
-        for key, val in params.items():
-            v = getattr(code, key.lower())
-            if v != val:
-                raise ValueError(key + ', ' + str(val) + ', ' + str(v))
+            if not isinstance(cls.decoder, code.decoder.__class__):
+                raise RuntimeError(code.decoder.name + ' != ' + cls.decoder.name)
 
-        print('success', code)
-        print()
-        print()
+            wait_event.wait(10)
+
+            print('key released')
+            print()
+            print('decoded friendly:', code)
+            print('decoded hexdecimal:', code.hexdecimal)
+            print('code length:', code.repeat_timer.duration / 1000.0, 'ms')
+
+            if not wait_event.is_set():
+                raise RuntimeError('repeat timeout problem')
+
+            print()
+            print('validating decode')
+            print('parameter name      value      expected value')
+            print('---------------------------------------------')
+            for key, val in params.items():
+                v = getattr(code, key.lower())
+                print(key + ' ' * (20 - len(key)) + str(v) + ' ' * (11 - len(str(v))) + str(val))
+                if v != val:
+                    raise ValueError(key + ', ' + str(val) + ', ' + str(v))
+
+            print()
+            print(code, 'successfully validated')
+            print()
+            print()
+        except:
+            print()
+            traceback.print_exc()
+            print()
+            print()
 
 
 class AdNotham(TestBase):
@@ -931,6 +951,21 @@ class Viewstar(TestBase):
     encoder = ir_encoder.Viewstar
 
 
+class Whynter(TestBase):
+    decoder = ir_decoder.Whynter
+    encoder = ir_encoder.Whynter
+
+
+class Zaptor36(TestBase):
+    decoder = ir_decoder.Zaptor36
+    encoder = ir_encoder.Zaptor36
+
+
+class Zaptor56(TestBase):
+    decoder = ir_decoder.Zaptor56
+    encoder = ir_encoder.Zaptor56
+
+
 class XBox360(TestBase):
     decoder = ir_decoder.XBox360
     encoder = ir_encoder.XBox360
@@ -942,6 +977,9 @@ class XBoxOne(TestBase):
 
 
 if __name__ == '__main__':
+    run_start = high_precision_timers.TimerUS()
+    run_start.reset()
+
     AdNotham.test()
     Aiwa.test()
     Akai.test()
@@ -1061,7 +1099,6 @@ if __name__ == '__main__':
     RECS800068.test()
     RECS800090.test()
     Revox.test()
-    Roku.test()
     RTIRelay.test()
     Sampo.test()
     Samsung20.test()
@@ -1090,6 +1127,9 @@ if __name__ == '__main__':
     Thomson.test()
     # Velleman.test()
     Viewstar.test()
+    Whynter.test()
+    Zaptor36.test()
+    Zaptor56.test()
     XBox360.test()
     XBoxOne.test()
     # Rs200.test()
@@ -1122,8 +1162,13 @@ if __name__ == '__main__':
     Audiovox.enable(True)
     Audiovox.test()
 
+    Roku.enable(True)
+    Roku.test()
+
     max_decode = max(decoding_times)
     avg_decode = sum(decoding_times) / float(len(decoding_times))
 
     print('max decoding time:', max_decode, 'us (' + str(max_decode / 1000.0) + ' ms)')
     print('average decoding time:', avg_decode, 'us (' + str(avg_decode / 1000.0) + ' ms)')
+    print('number of decodes:', len(decoding_times))
+    print('total run time:', run_start.elapsed() / 1000.0, 'ms')

@@ -48,6 +48,12 @@ class F32(protocol_base.IrProtocolBase):
     _repeat_lead_out = []
     _repeat_bursts = []
 
+    _code_order = [
+        ['D', 8],
+        ['S', 8],
+        ['F', 8],
+        ['E', 8]
+    ]
     _parameters = [
         ['D', 0, 7],
         ['S', 8, 15],
