@@ -26,6 +26,7 @@
 
 
 from collections import deque
+import threading
 from . import (
     DecodeError,
     RepeatLeadIn,
@@ -146,6 +147,7 @@ from .rc6m16 import RC6M16  # NOQA
 from .rc6m28 import RC6M28  # NOQA
 from .rc6m32 import RC6M32  # NOQA
 from .rc6m56 import RC6M56  # NOQA
+from .rc6mbit import RC6MBIT  # NOQA
 from .rca import RCA  # NOQA
 from .rca38 import RCA38  # NOQA
 from .rca38old import RCA38Old  # NOQA
@@ -366,6 +368,7 @@ _DECODERS = [
     RC57F57,
     StreamZap,
     StreamZap57,
+    RC6MBIT
 ]
 
 
@@ -384,6 +387,7 @@ class IRDecoder(object):
         self.__last_code = None
         self.__timer = high_precision_timers.TimerUS()
         self.__running = False
+        self.__repeat_code_lock = threading.RLock()
 
         for i, decoder in enumerate(_DECODERS):
             for decoder_xml in self.__config:
@@ -431,8 +435,9 @@ class IRDecoder(object):
 
     def __reset_last_code(self, code):
         code.unbind_released_callback(self.__reset_last_code)
-        if code.decoder == self.__last_decoder:
-            self.__last_code = None
+        with self.__repeat_code_lock:
+            if code.decoder == self.__last_decoder:
+                self.__last_code = None
 
     def decode(self, data, frequency=0):
         if self.__running:
@@ -460,29 +465,30 @@ class IRDecoder(object):
         #             continue
         #         return
 
-        if self.__last_code is not None:
-            if self.__last_code.decoder.frequency_match(frequency):
-                if len(data) == 1 and data[0] == self.__last_code:
-                    self.__last_code.repeat_timer.start(self.__timer)
-                    self.__running = False
-                    return self.__last_code
+        with self.__repeat_code_lock:
+            if self.__last_code is not None:
+                if self.__last_code.decoder.frequency_match(frequency):
+                    if len(data) == 1 and data[0] == self.__last_code:
+                        self.__last_code.repeat_timer.start(self.__timer)
+                        self.__running = False
+                        return self.__last_code
 
-                code = None
-                for rlc in data:
-                    try:
-                        code = self.__last_code.decoder.decode(rlc, frequency)
-                    except DecodeError:
-                        break
-                    except (RepeatLeadIn, RepeatLeadOut, RepeatTimeoutExpired):
-                        if len(data) == 1:
-                            self.__running = False
-                            return None
+                    code = None
+                    for rlc in data:
+                        try:
+                            code = self.__last_code.decoder.decode(rlc, frequency)
+                        except DecodeError:
+                            break
+                        except (RepeatLeadIn, RepeatLeadOut, RepeatTimeoutExpired):
+                            if len(data) == 1:
+                                self.__running = False
+                                return None
 
-                if code is not None:
-                    code.repeat_timer.start(self.__timer)
-                    self.__last_code = code
-                    self.__running = False
-                    return code
+                    if code is not None:
+                        code.repeat_timer.start(self.__timer)
+                        self.__last_code = code
+                        self.__running = False
+                        return code
 
         code = None
 
@@ -502,7 +508,9 @@ class IRDecoder(object):
 
                     decoder._last_code = c
                     c.repeat_timer.start(self.__timer)
-                    self.__last_code = c
+                    with self.__repeat_code_lock:
+                        self.__last_code = c
+
                     self.__running = False
                     return c
 
@@ -539,9 +547,10 @@ class IRDecoder(object):
                 return None
 
         self.__last_decoder = code.decoder
+        with self.__repeat_code_lock:
+            self.__last_code = code
         code.bind_released_callback(self.__reset_last_code)
         code.repeat_timer.start(self.__timer)
-        self.__last_code = code
         self.__running = False
 
         return code
@@ -1026,6 +1035,10 @@ class IRDecoder(object):
     @property
     def RC6M56(self):
         return self.__get_decoder(RC6M56)
+
+    @property
+    def RC6MBIT(self):
+        return self.__get_decoder(RC6MBIT)
 
     @property
     def RCA(self):

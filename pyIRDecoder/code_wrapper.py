@@ -232,6 +232,9 @@ class CodeWrapper(object):
                         raise DecodeError('Invalid lead in')
 
             for i, e_burst in enumerate(lead_out):
+                if e_burst == -999999999999:
+                    break
+
                 idx = ~(i - len(lead_out)) + 1
                 burst = code.pop(len(code) - idx)
 
@@ -440,9 +443,27 @@ class CodeWrapper(object):
                         elif self._match(burst, space * 2):
                             pairs += [space, space]
                             cleaned_code += [space, space]
-
                         else:
-                            raise DecodeError('Invalid burst')
+                            if (
+                                lead_in and
+                                lead_in[-1] == -999999999999 and
+                                i + 1 == len(code)
+                            ):
+                                if len(pairs) % 2:
+                                    for mark, space in bursts:
+                                        if space > 0:
+                                            continue
+
+                                        if mark == pairs[-1]:
+                                            pairs += [space]
+                                            cleaned_code += [space, burst - space]
+                                            break
+                                    else:
+                                        raise DecodeError('Invalid burst')
+                                else:
+                                    cleaned_code += [space, burst]
+                            else:
+                                raise DecodeError('Invalid burst')
 
             tmp = []
 

@@ -39,6 +39,12 @@ from . import (
 from .ir_code import IRCode
 
 
+try:
+    long = long
+except NameError:
+    long = int
+
+
 class ProtocolBaseMeta(type):
     _classes = []
 
@@ -368,7 +374,7 @@ class IrProtocolBase(object):
         def flatten_and_compress(lst):
             res = []
             for itm in lst:
-                if isinstance(itm, int):
+                if isinstance(itm, (int, long)):
                     if res and (res[-1] > 0 < itm or res[-1] < 0 > itm):
                         res[-1] += itm
                     else:

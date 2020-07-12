@@ -36,6 +36,8 @@ class RC6M56(protocol_base.IrProtocolBase):
     """
     IR decoder for the RC6M56 protocol.
     """
+    __name__ = 'RC6-m-56'
+
     irp = '{36k,444,msb}<-1,1|1,-1>(6,-2,1:1,M:3,<-2,2|2,-2>(T:1),C:56,-131.0m)*'
     frequency = 36000
     bit_count = 61

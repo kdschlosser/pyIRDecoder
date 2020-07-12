@@ -37,6 +37,8 @@ class RC6620(protocol_base.IrProtocolBase):
     IR decoder for the RC6620 protocol.
     """
 
+    __name__ = 'RC6-6-20'
+
     irp = '{36k,444,msb}<-1,1|1,-1>(6,-2,1:1,6:3,<-2,2|2,-2>(1-(T:1)),D:8,S:4,F:8,-100m)*'
     frequency = 36000
     bit_count = 25

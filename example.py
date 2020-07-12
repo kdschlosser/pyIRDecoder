@@ -736,6 +736,11 @@ class RC6M56(TestBase):
     encoder = ir_encoder.RC6M56
 
 
+class RC6MBIT(TestBase):
+    decoder = ir_decoder.RC6MBIT
+    encoder = ir_encoder.RC6MBIT
+
+
 class RCA(TestBase):
     decoder = ir_decoder.RCA
     encoder = ir_encoder.RCA
@@ -1133,6 +1138,7 @@ if __name__ == '__main__':
     XBox360.test()
     XBoxOne.test()
     # Rs200.test()
+    RC6MBIT.test()
 
     RC57F.enable(False)
     StreamZap.enable(True)

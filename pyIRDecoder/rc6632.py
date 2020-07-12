@@ -36,6 +36,8 @@ class RC6632(protocol_base.IrProtocolBase):
     """
     IR decoder for the RC6632 protocol.
     """
+    __name__ = 'RC6-6-32'
+
     irp = '{36k,444,msb}<-1,1|1,-1>(6,-2,1:1,6:3,-2,2,OEM1:8,S:8,(1-T):1,D:7,F:8,^107m)*{OEM1=128}'
     frequency = 36000
     bit_count = 36

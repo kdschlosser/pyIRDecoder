@@ -370,6 +370,9 @@ class IRCode(object):
             bits = ''
 
             if 'CODE' in self._data:
+                if 'M' in self._data:
+                    bits += bin(self.mode)[2:].zfill(3)[:3]
+
                 bits += bin(self.code)[2:]
             else:
                 for param, num_bits in self._decoder._code_order:
@@ -442,8 +445,13 @@ class IRCode(object):
             res = []
 
             if 'CODE' in self._data:
+                if 'M' in self._data:
+                    h = hex(self.mode)[2:].upper()
+                    h = h.zfill(len(h) + (len(h) % 2))
+                    res += [h]
+
                 h = hex(self.code)[2:].upper()
-                h = h.zfill(len(h) + (len(h) % 2))
+                h = h.zfill(len(h) + (len(h) % 2)).rstrip('L')
                 res += [h]
             else:
                 for param, num_bits in self._decoder._code_order:
@@ -451,7 +459,7 @@ class IRCode(object):
                     fill = (num_bits // 8) + 1
                     fill += fill % 2
 
-                    res += [('%X' % (value,)).zfill(fill)]
+                    res += [(('%X' % (value,)).zfill(fill)).rstrip('L')]
 
             return self.decoder.name + '.' + ':'.join(res)
 

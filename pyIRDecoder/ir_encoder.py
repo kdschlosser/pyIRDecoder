@@ -138,6 +138,7 @@ from .rc6m16 import RC6M16  # NOQA
 from .rc6m28 import RC6M28  # NOQA
 from .rc6m32 import RC6M32  # NOQA
 from .rc6m56 import RC6M56  # NOQA
+from .rc6mbit import RC6MBIT  # NOQA
 from .rca import RCA  # NOQA
 from .rca38 import RCA38  # NOQA
 from .rca38old import RCA38Old  # NOQA
@@ -646,6 +647,10 @@ class IREncoder(object):
     @property
     def RC6M56(self):
         return RC6M56
+
+    @property
+    def RC6MBIT(self):
+        return RC6MBIT
 
     @property
     def RCA(self):
