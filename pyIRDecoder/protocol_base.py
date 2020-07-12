@@ -504,6 +504,16 @@ class IrProtocolBase(object):
         return int(value & (1 << bit_num) > 0)
 
     @classmethod
+    def _copy_bits(cls, in_value, in_start, in_end, out_value, offset):
+        for i in range(in_start, in_end + 1):
+            out_value = cls._set_bit(
+                out_value,
+                i + offset,
+                cls._get_bit(in_value, i)
+            )
+        return out_value
+
+    @classmethod
     def _invert_bits(cls, n, num_bits):
         res = 0
 

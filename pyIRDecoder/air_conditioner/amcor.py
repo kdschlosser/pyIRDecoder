@@ -37,7 +37,7 @@ class Amcore(protocol_base.IrProtocolBase):
     encoding = 'lsb'
 
     _code_order = [
-        ['FAN', 3],
+        ['FAN_SPEED', 3],
         ['MODE', 3],
         ['TEMPERATURE', 6],
         ['POWER', 4],
@@ -46,7 +46,7 @@ class Amcore(protocol_base.IrProtocolBase):
     ]
 
     _parameters = [
-        ['FAN', 8, 10],
+        ['FAN_SPEED', 8, 10],
         ['MODE', 13, 15],
         ['TEMPERATURE', 17, 22],
         ['POWER', 40, 43],
@@ -76,7 +76,15 @@ class Amcore(protocol_base.IrProtocolBase):
     def turbo(self):
         return [0, 3]
 
-    def _calc_checksum(self, fan_speed, mode, temperature, power, vent, turbo):
+    def _compile_packet(
+        self,
+        fan_speed,
+        mode,
+        temperature,
+        power,
+        vent,
+        turbo
+    ):
         byte0 = 1
         byte1 = 0
         byte2 = 0
@@ -92,20 +100,31 @@ class Amcore(protocol_base.IrProtocolBase):
         byte6 = self._copy_bits(vent, 0, 1, byte6, 6)
         byte6 = self._copy_bits(turbo, 0, 1, byte6, 0)
 
+        return (
+            byte0,
+            byte1,
+            byte2,
+            byte3,
+            byte4,
+            byte5,
+            byte6
+        )
+
+    def _calc_checksum(self, fan_speed, mode, temperature, power, vent, turbo):
+        packet = self._compile_packet(
+            fan_speed,
+            mode,
+            temperature,
+            power,
+            vent,
+            turbo
+        )
+
         checksum = 0
-        for byte in (byte0, byte1, byte2, byte3, byte4, byte5, byte6):
+        for byte in packet:
             checksum += (byte >> 4) + (byte & 0xF)
 
         return self._get_bits(checksum, 0, 7)
-
-    def _copy_bits(self, in_value, in_start, in_end, out_value, offset):
-        for i in range(in_start, in_end + 1):
-            out_value = self._set_bit(
-                out_value,
-                i + offset,
-                self._get_bit(in_value, i)
-            )
-        return out_value
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
@@ -125,22 +144,7 @@ class Amcore(protocol_base.IrProtocolBase):
         return code
 
     def encode(self, fan_speed, mode, temperature, power, vent, turbo):
-
-        byte0 = 1
-        byte1 = 0
-        byte2 = 0
-        byte3 = 0
-        byte4 = 0
-        byte5 = 0
-        byte6 = 0
-
-        byte1 = self._copy_bits(fan_speed, 0, 2, byte1, 5)
-        byte1 = self._copy_bits(mode, 0, 2, byte1, 0)
-        byte2 = self._copy_bits(temperature, 0, 6, byte2, 1)
-        byte5 = self._copy_bits(power, 0, 3, byte5, 4)
-        byte6 = self._copy_bits(vent, 0, 1, byte6, 6)
-        byte6 = self._copy_bits(turbo, 0, 1, byte6, 0)
-        byte7 = self._calc_checksum(
+        packet = self._compile_packet(
             fan_speed,
             mode,
             temperature,
@@ -149,16 +153,23 @@ class Amcore(protocol_base.IrProtocolBase):
             turbo
         )
 
-        packet = self._build_packet(
-            list(self._get_timing(byte0, i) for i in range(8)),
-            list(self._get_timing(byte1, i) for i in range(8)),
-            list(self._get_timing(byte2, i) for i in range(8)),
-            list(self._get_timing(byte3, i) for i in range(8)),
-            list(self._get_timing(byte4, i) for i in range(8)),
-            list(self._get_timing(byte5, i) for i in range(8)),
-            list(self._get_timing(byte6, i) for i in range(8)),
-            list(self._get_timing(byte7, i) for i in range(8)),
+        packet = list(packet)
+
+        checksum = self._calc_checksum(
+            fan_speed,
+            mode,
+            temperature,
+            power,
+            vent,
+            turbo
         )
+
+        packet += [checksum]
+
+        for i, item in enumerate(packet):
+            packet[i] = list(self._get_timing(item, j) for j in range(8))
+
+        packet = self._build_packet(*packet)
 
         params = dict(
             frequency=self.frequency,
@@ -177,3 +188,6 @@ class Amcore(protocol_base.IrProtocolBase):
             params
         )
         return code
+
+
+Amcore = Amcore()
