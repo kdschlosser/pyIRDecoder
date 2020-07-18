@@ -69,14 +69,12 @@ class DishNetwork(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data, frequency=0):
+        self._lead_in = [TIMING, -TIMING * 15]
+
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
         except DecodeError:
-            if self._lead_in and self._last_code is None:
-                raise
-
-            self._lead_in = [TIMING, -TIMING * 15]
-
+            del self._lead_in[:]
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         function = self._reverse_bits(code.function, 6)
@@ -88,25 +86,21 @@ class DishNetwork(protocol_base.IrProtocolBase):
             frequency=self.frequency
         )
 
-        c = protocol_base.IRCode(
+        code = protocol_base.IRCode(
             self,
             code.original_rlc,
             code.normalized_rlc,
             params
         )
-        c._code = c
 
-        if self._last_code is None:
-            del self._lead_in[:]
-            self._last_code = c
-        elif self._last_code == c:
-            return self._last_code
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
 
-        else:
             self._last_code.repeat_timer.stop()
-            self._last_code = c
 
-        return c
+        self._last_code = code
+        return code
 
     def encode(self, device, sub_device, function, repeat_count=0):
         lead_in = self._lead_in[:]

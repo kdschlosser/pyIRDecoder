@@ -46,6 +46,8 @@ class RECS800045(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING * 31], [TIMING, -TIMING * 47]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['D', 3],
         ['F', 6],

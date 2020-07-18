@@ -46,6 +46,8 @@ class NovaPace(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['D', 10],
         ['S', 8],

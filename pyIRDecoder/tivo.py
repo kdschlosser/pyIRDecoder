@@ -67,8 +67,8 @@ class Tivo(protocol_base.IrProtocolBase):
         ['extended_function', 0, 15]
     ]
 
-    def __init__(self, xml=None):
-        protocol_base.IrProtocolBase.__init__(self, xml)
+    def __init__(self, parent=None, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, parent, xml)
         if xml is None:
             self._enabled = False
 

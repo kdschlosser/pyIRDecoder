@@ -80,8 +80,11 @@ class DirecTV0(protocol_base.IrProtocolBase):
         original_code = data[:]
         code = data[:]
 
-        mark, space = code[:2]
-        code = code[2:]
+        try:
+            mark, space = code[:2]
+            code = code[2:]
+        except ValueError:
+            raise DecodeError('Invalid burst')
 
         if (
             self._match(mark, self._lead_in[0]) and

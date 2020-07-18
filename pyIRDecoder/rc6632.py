@@ -48,6 +48,8 @@ class RC6632(protocol_base.IrProtocolBase):
     _middle_timings = [(-TIMING * 2, TIMING * 2)]
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['S', 8],
         ['D', 7],

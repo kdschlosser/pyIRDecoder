@@ -152,7 +152,6 @@ from .rca import RCA  # NOQA
 from .rca38 import RCA38  # NOQA
 from .rca38old import RCA38Old  # NOQA
 from .rcaold import RCAOld  # NOQA
-from .rcmm import RCMM  # NOQA
 from .recs800045 import RECS800045  # NOQA
 from .recs800068 import RECS800068  # NOQA
 from .recs800090 import RECS800090  # NOQA
@@ -372,7 +371,93 @@ _DECODERS = [
 ]
 
 
-from . import high_precision_timers
+from . import high_precision_timers  # NOQA
+from . import ir_code  # NOQA
+from . import thread_worker
+from collections import deque  # NOQA
+
+
+_process_threadworker = thread_worker.ProcessThreadWorker()
+
+class DecodeThread(threading.Thread):
+
+    def __init__(self, decoder):
+        self.decoder = decoder
+        self.stop_event = threading.Event()
+        self.buffer_event = threading.Event()
+        self.buffer_lock = threading.Lock()
+        self.decode_universal = False
+        self.buffer = deque()
+        self.my_timer = high_precision_timers.TimerUS()
+
+        threading.Thread.__init__(self)
+
+    def append(self, data, frequency):
+        self.my_timer.reset()
+
+        with self.buffer_lock:
+            self.buffer.append((data, frequency))
+
+        self.buffer_event.set()
+
+    def run(self):
+        while not self.stop_event.is_set():
+            if self.decode_universal:
+                self.buffer_event.wait(0.1)
+                if not self.buffer_event.is_set():
+                    with self.buffer_lock:
+                        buf = []
+                        frequency = 0
+                        while self.buffer:
+                            b, f = self.buffer.popleft()
+                            if frequency != 0:
+                                if f != frequency:
+                                    self.buffer.appendleft((b, f))
+                                    break
+
+                            frequency = f
+                            buf += b
+
+                    if len(buf) > 6:
+                        self.decoder._decode_universal(buf, frequency)
+                    self.decode_universal = False
+                    continue
+            else:
+                self.buffer_event.wait()
+
+            self.buffer_event.clear()
+            buf = []
+            frequency = 0
+
+            while self.buffer:
+                b, f = self.buffer.popleft()
+                if frequency != 0:
+                    if f != frequency:
+                        self.buffer.appendleft((b, f))
+                        break
+
+                frequency = f
+                buf += b
+
+            tmp_buf = []
+            while buf:
+                tmp_buf += [buf.pop(0)]
+
+                if len(tmp_buf) > 3 and tmp_buf[-1] < -2000:
+                    if self.decoder._decode(tmp_buf[:], frequency):
+                        del tmp_buf[:]
+
+            if tmp_buf:
+                self.buffer.appendleft((tmp_buf, frequency))
+                self.decode_universal = True
+            else:
+                self.decode_universal = False
+
+    def stop(self):
+        if self.is_alive():
+            self.stop_event.set()
+            self.buffer_event.set()
+            self.join()
 
 
 class IRDecoder(object):
@@ -385,22 +470,61 @@ class IRDecoder(object):
         self.__config = config
         self.__decoders = deque()
         self.__last_code = None
+        self.__last_decoder = None
         self.__timer = high_precision_timers.TimerUS()
         self.__running = False
-        self.__repeat_code_lock = threading.RLock()
+        self.__repeat_code_lock = threading.Lock()
+        self.__decode_thread = None
+        self.__decode_callback = None
 
         for i, decoder in enumerate(_DECODERS):
             for decoder_xml in self.__config:
                 if decoder.name == decoder_xml.name:
-                    self.__decoders.append(protocol_base.IrProtocolBase(decoder_xml))
+                    self.__decoders.append(protocol_base.IrProtocolBase(self, decoder_xml))
                     break
             else:
-                decoder = decoder()
+                decoder = decoder(self)
                 self.__decoders.append(decoder)
                 decoder_xml = decoder.xml
                 self.__config.append(decoder_xml)
 
-        self.__last_decoder = None
+    def bind_callback(self, callback):
+        self.__decode_callback = callback
+
+    def unbind_callback(self):
+        self.__decode_callback = None
+
+    def _decode_universal(self, rlc, frequency):
+        if len(rlc) < 6:
+            return False
+
+        self.__timer.reset()
+        with self.__repeat_code_lock:
+            code = self.Universal.decode(rlc, frequency)
+            if self.__last_code is not None:
+                if self.__last_code == code:
+                    self.__last_code.repeat_timer.start(self.__timer)
+                    if self.__decode_callback is not None:
+                        _process_threadworker.add(self.__decode_callback, self.__last_code)
+
+                self.__last_code.repeat_timer.stop()
+
+            code.bind_released_callback(self.__reset_last_code)
+            self.__last_code = code
+            self.__last_code.repeat_timer.start(self.__timer)
+            if self.__decode_callback is not None:
+                _process_threadworker.add(self.__decode_callback, self.__last_code)
+
+            return True
+
+    def close(self):
+        if self.__decode_thread is not None:
+            self.__decode_thread.stop()
+            self.__decode_thread = None
+        try:
+            self.config.save()
+        except:
+            pass
 
     @property
     def config(self):
@@ -434,126 +558,163 @@ class IRDecoder(object):
         return self.__last_decoder
 
     def __reset_last_code(self, code):
-        code.unbind_released_callback(self.__reset_last_code)
         with self.__repeat_code_lock:
-            if code.decoder == self.__last_decoder:
+            if code == self.__last_code:
+                if code.repeat_timer.is_running:
+                    return
+
                 self.__last_code = None
+                print 'REPEAT_RESET'
 
-    def decode(self, data, frequency=0):
-        if self.__running:
-            raise RuntimeError('Create a new decoder instance for each thread.')
+            code.unbind_released_callback(self.__reset_last_code)
 
-        self.__running = True
+    def _decode(self, data, frequency):
         self.__timer.reset()
 
-        if isinstance(data, protocol_base.IRCode):
-            self.__running = False
-            raise DecodeError('Input to be decoded must be RLC')
+        if frequency == 0:
+            possible_decoders = list(decoder for decoder in self.__decoders if decoder.enabled)
+        else:
+            possible_decoders = list(
+                decoder for decoder in self.__decoders
+                if decoder.enabled and decoder.frequency_match(frequency)
+            )
 
-        if isinstance(data, tuple):
+        with self.__repeat_code_lock:
+            if self.__last_code is not None and self.__last_code.decoder in possible_decoders:
+                if data == self.__last_code:
+                    self.__last_code.repeat_timer.start(self.__timer)
+                    if self.__decode_callback is not None:
+                        _process_threadworker.add(self.__decode_callback, self.__last_code)
+
+                    return True
+
+                try:
+                    code = self.__last_code.decoder.decode(data, frequency)
+                    if code != self.__last_code:
+                        self.__last_code = code
+
+                    self.__last_code.repeat_timer.start(self.__timer)
+
+                    if self.__decode_callback is not None:
+                        _process_threadworker.add(self.__decode_callback, self.__last_code)
+
+                    return True
+
+                except DecodeError:
+                    pass
+                except RepeatLeadIn:
+                    self.__last_decoder = self.__last_code.decoder
+                    return True
+
+                except (RepeatLeadOut, RepeatTimeoutExpired):
+                    return True
+
+            elif self.__last_decoder is not None and self.__last_decoder in possible_decoders:
+                try:
+                    code = self.__last_decoder.decode(data, frequency)
+                    if code != self.__last_code:
+                        self.__last_code = code
+
+                    self.__last_code.repeat_timer.start(self.__timer)
+
+                    if self.__decode_callback is not None:
+                        _process_threadworker.add(self.__decode_callback, self.__last_code)
+
+                    return True
+
+                except DecodeError:
+                    pass
+                except RepeatLeadIn:
+                    self.__last_decoder = self.__last_code.decoder
+                    return True
+                except (RepeatLeadOut, RepeatTimeoutExpired):
+                    return True
+
+            for decoder in possible_decoders:
+                for code in decoder:
+                    if code == data:
+                        if decoder._last_code is not None:
+                            decoder._last_code.repeat_timer.stop()
+                        break
+
+                else:
+                    try:
+                        code = decoder.decode(data, frequency)
+                    except DecodeError:
+                        continue
+
+                    except RepeatLeadIn:
+                        self.__last_decoder = decoder
+                        return True
+
+                    except (RepeatLeadOut, RepeatTimeoutExpired):
+                        return True
+
+                code.bind_released_callback(self.__reset_last_code)
+                self.__last_decoder = decoder
+                self.__last_code = code
+                code.repeat_timer.start(self.__timer)
+
+                if self.__decode_callback is not None:
+                    _process_threadworker.add(self.__decode_callback, self.__last_code)
+
+                return True
+
+    def decode(self, data, frequency=0):
+        if not data:
+            return
+
+        if isinstance(data, protocol_base.IRCode):
+            frequency = data.frequency
+            data = [item for sublist in data for item in sublist]
+
+        elif isinstance(data, tuple):
             data = list(data)
 
-        if not isinstance(data, list):
-            data = [[int(ord(x)) for x in data]]
-        elif not isinstance(data[0], list):
-            data = [[int(x) for x in data]]
-        #
-        # for i, rlc in enumerate(data):
-        #     if len(rlc) < 3:
-        #         if i + 1 < len(data):
-        #             data[i + 1] = rlc + data[i + 1]
-        #             continue
-        #         return
-
-        with self.__repeat_code_lock:
-            if self.__last_code is not None:
-                if self.__last_code.decoder.frequency_match(frequency):
-                    if len(data) == 1 and data[0] == self.__last_code:
-                        self.__last_code.repeat_timer.start(self.__timer)
-                        self.__running = False
-                        return self.__last_code
-
-                    code = None
-                    for rlc in data:
-                        try:
-                            code = self.__last_code.decoder.decode(rlc, frequency)
-                        except DecodeError:
-                            break
-                        except (RepeatLeadIn, RepeatLeadOut, RepeatTimeoutExpired):
-                            if len(data) == 1:
-                                self.__running = False
-                                return None
-
-                    if code is not None:
-                        code.repeat_timer.start(self.__timer)
-                        self.__last_code = code
-                        self.__running = False
-                        return code
-
-        code = None
-
-        for i, decoder in enumerate(self.__decoders):
-            if not decoder.enabled:
-                continue
-
-            if frequency != 0:
-                if not decoder.frequency_match(frequency):
-                    continue
-
-            for c in decoder:
-                if c == data:
-                    if decoder._last_code is not None:
-                        if decoder._last_code != c:
-                            decoder._last_code.repeat_timer.stop()
-
-                    decoder._last_code = c
-                    c.repeat_timer.start(self.__timer)
-                    with self.__repeat_code_lock:
-                        self.__last_code = c
-
-                    self.__running = False
-                    return c
-
-            for rlc in data:
-                try:
-                    code = decoder.decode(rlc, frequency)
-                except DecodeError:
-                    break
-                except (RepeatLeadIn, RepeatLeadOut, RepeatTimeoutExpired):
-                    if len(data) == 1:
-                        self.__running = False
-                        return None
-
-                    continue
-            else:
-                self.__last_decoder = decoder
-                break
-
-        if code is None:
-            rlc = []
-            for r in data:
-                if len(r) > len(rlc):
-                    rlc = r[:]
-
-            if len(rlc) < 6:
-                self.__running = False
-                return None
-
-            decoder = self.Universal
+        elif not isinstance(data, list):
             try:
-                code = decoder.decode(rlc, frequency)
-            except DecodeError:
-                self.__running = False
-                return None
+                from . import pronto
+                frequency, data = pronto.pronto_to_rlc(data)
+                data = [item for sublist in data for item in sublist]
+            except:
+                try:
+                    data = [int(ord(x)) for x in data]
+                except:
+                    data = [int(x) for x in data]
 
-        self.__last_decoder = code.decoder
-        with self.__repeat_code_lock:
-            self.__last_code = code
-        code.bind_released_callback(self.__reset_last_code)
-        code.repeat_timer.start(self.__timer)
-        self.__running = False
+        code = self._decode(data, frequency)
+        if code is True:
+            return None
 
         return code
+
+    def stream_decode(self, data, frequency=0):
+        if not data:
+            return
+
+        if self.__decode_thread is None:
+            self.__decode_thread = DecodeThread(self)
+            self.__decode_thread.start()
+
+        if isinstance(data, protocol_base.IRCode):
+            frequency = data.frequency
+            data = [item for sublist in data for item in sublist]
+
+        elif isinstance(data, tuple):
+            data = list(data)
+
+        elif not isinstance(data, list):
+            try:
+                from . import pronto
+                frequency, data = pronto.pronto_to_rlc(data)
+                data = [item for sublist in data for item in sublist]
+            except:
+                try:
+                    data = [int(ord(x)) for x in data]
+                except:
+                    data = [int(x) for x in data]
+
+        self.__decode_thread.append(data, frequency)
 
     @property
     def enabled_decoders(self):
@@ -1055,10 +1216,6 @@ class IRDecoder(object):
     @property
     def RCAOld(self):
         return self.__get_decoder(RCAOld)
-
-    @property
-    def RCMM(self):
-        return self.__get_decoder(RCMM)
 
     @property
     def RECS800045(self):

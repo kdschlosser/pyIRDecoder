@@ -78,14 +78,18 @@ class Apple(protocol_base.IrProtocolBase):
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
-        if self._last_code is not None and self._last_code == code:
-            return self.__last_code
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
 
         checksum = self._calc_checksum(code.function, code.pair_id)
 
         if code.sub_device != 135 or checksum != code.checksum:
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
     def encode(self, device, function, pair_id, repeat_count=0):

@@ -66,8 +66,10 @@ class Blaupunkt(protocol_base.IrProtocolBase):
         ['function', 0, 63],
     ]
 
-    def __init__(self, xml=None):
-        protocol_base.IrProtocolBase.__init__(self, xml)
+    _has_repeat_lead_out = True
+
+    def __init__(self, parent=None, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, parent, xml)
         if xml is None:
             self._enabled = False
 

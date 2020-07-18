@@ -73,6 +73,9 @@ class DirecTV(protocol_base.IrProtocolBase):
         return self._get_bits(c, 0, 3)
 
     def decode(self, data, frequency=0):
+        if len(data) < 20:
+            raise DecodeError('Invalid code')
+
         cleaned_code = []
         original_code = data[:]
         code = data[:]

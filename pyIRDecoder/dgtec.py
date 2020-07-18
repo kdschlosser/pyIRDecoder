@@ -78,7 +78,6 @@ class Dgtec(protocol_base.IrProtocolBase):
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
-            self._last_code = None
 
         func_checksum = self._calc_checksum(code.function)
 

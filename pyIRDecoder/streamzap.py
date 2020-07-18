@@ -83,6 +83,8 @@ class StreamZap(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [-TIMING, TIMING]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['D', 6],
         ['F', 6],
@@ -100,8 +102,8 @@ class StreamZap(protocol_base.IrProtocolBase):
         ['function', 0, 63],
     ]
 
-    def __init__(self, xml=None):
-        protocol_base.IrProtocolBase.__init__(self, xml)
+    def __init__(self, parent=None, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, parent, xml)
         if xml is None:
             self._enabled = False
 

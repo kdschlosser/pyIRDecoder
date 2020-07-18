@@ -73,6 +73,8 @@ class Nokia32(protocol_base.IrProtocolBase):
         ['extended_function', 0, 127],
     ]
 
+    _has_repeat_lead_out = True
+
     def decode(self, data, frequency=0):
         cleaned_code = []
         original_code = data[:]

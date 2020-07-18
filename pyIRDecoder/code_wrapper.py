@@ -157,7 +157,10 @@ class CodeWrapper(object):
 
         if self._stream_encoding == 'bit':
             for i, e_burst in enumerate(lead_in):
-                burst = code[i - offset]
+                try:
+                    burst = code[i - offset]
+                except IndexError:
+                    raise DecodeError('Invalid code')
                 if self._match(burst, e_burst):
                     code.pop(0)
                     cleaned_code += [e_burst]
@@ -201,7 +204,10 @@ class CodeWrapper(object):
 
         else:
             for i, e_burst in enumerate(lead_in):
-                burst = code[i - offset]
+                try:
+                    burst = code[i - offset]
+                except IndexError:
+                    raise DecodeError('Invalid lead in')
                 if self._match(burst, e_burst):
                     code.pop(0)
                     cleaned_code += [e_burst]
@@ -236,7 +242,10 @@ class CodeWrapper(object):
                     break
 
                 idx = ~(i - len(lead_out)) + 1
-                burst = code.pop(len(code) - idx)
+                try:
+                    burst = code.pop(len(code) - idx)
+                except IndexError:
+                    raise DecodeError('Invalid lead out')
 
                 if self._match(burst, e_burst):
                     cleaned_lead_out += [e_burst]
@@ -501,8 +510,8 @@ class CodeWrapper(object):
                         len(pairs[-1]) == 2
                     ):
                         cleaned_code.append(s)
-                        if isinstance(timing, tuple):
-                            middle_timings.remove(timing)
+                        if isinstance(tmng, tuple):
+                            middle_timings.remove(tmng)
                         return True
 
                     if (
@@ -547,45 +556,45 @@ class CodeWrapper(object):
                         cleaned_code.append(s)
                         return True
 
-                for timing in middle_timings:
-                    if pairs and isinstance(timing, dict):
+                for tmng in middle_timings:
+                    if pairs and isinstance(tmng, dict):
                         if len(pairs[-1]) == 2:
                             count = len(pairs)
                         else:
                             count = len(pairs) - 1
 
-                        start = timing['start']
-                        stop = timing['stop']
+                        start = tmng['start']
+                        stop = tmng['stop']
 
                         if count < start - 1 or count > stop:
                             continue
 
-                        for m, s in timing['bursts']:
+                        for m, s in tmng['bursts']:
                             if _check_timing():
                                 return True
 
-                    elif isinstance(timing, tuple):
-                        m, s = timing
+                    elif isinstance(tmng, tuple):
+                        m, s = tmng
                         if _check_timing():
                             return True
                         continue
 
-                    if self._match(burst, timing):
-                        cleaned_code.append(timing)
-                        middle_timings.remove(timing)
+                    if self._match(burst, tmng):
+                        cleaned_code.append(tmng)
+                        middle_timings.remove(tmng)
                         return True
-                    if self._match(burst, timing + mark):
-                        cleaned_code.extend([timing, mark])
+                    if self._match(burst, tmng + mark):
+                        cleaned_code.extend([tmng, mark])
                         pairs.append([mark])
-                        middle_timings.remove(timing)
+                        middle_timings.remove(tmng)
                         return True
-                    if self._match(burst, timing + space):
-                        cleaned_code.extend([space, timing])
+                    if self._match(burst, tmng + space):
+                        cleaned_code.extend([space, tmng])
                         if len(pairs[-1]) == 1:
                             pairs[-1].append(space)
                         else:
                             pairs.append([space])
-                        middle_timings.remove(timing)
+                        middle_timings.remove(tmng)
                         return True
 
                 return False
@@ -593,8 +602,11 @@ class CodeWrapper(object):
             for i, burst in enumerate(code):
                 for mark, space in bursts:
                     if len(pairs) > 0:
-                        if _check_middles():
-                            break
+                        try:
+                            if _check_middles():
+                                break
+                        except IndexError:
+                            raise DecodeError('Invalid code')
 
                     if self._match(burst, mark):
                         if pairs and len(pairs[-1]) == 1:
@@ -641,6 +653,9 @@ class CodeWrapper(object):
 
         self._code = []
         cleaned_code += cleaned_lead_out
+
+        if not cleaned_code:
+            raise DecodeError('Invalid code')
 
         if cleaned_code[-1] is None:
             total_time = -self._lead_out[-1]

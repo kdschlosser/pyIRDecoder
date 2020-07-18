@@ -79,6 +79,7 @@ class Amino(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
         checksum = self._calc_checksum(code.device, code.function, code.toggle, code.c3)
 
         if checksum != code.checksum or code.c0 != 1 or code.c1 != 1 or code.c2 != 0:

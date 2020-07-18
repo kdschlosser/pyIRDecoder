@@ -28,36 +28,46 @@ project https://github.com/kdschlosser/pyWinMCERemote
 """
 
 
-pronto_clock = 0.241246
-signal_free = 10000
-signal_free_rc6 = 2700
-rc6_start = [2700, -900, 450, -900, 450, -450, 450, -450, 450, -450]
-rc6a_start = [3150, -900, 450, -450, 450, -450, 450, -900, 450]
+PRONTO_CLOCK = 0.241246
+SIGNAL_FREE = 10000
+SIGNAL_FREE_RC6 = 2700
+RC6_START = [2700, -900, 450, -900, 450, -450, 450, -450, 450, -450]
+RC6A_START = [3150, -900, 450, -450, 450, -450, 450, -900, 450]
 
 
 def rlc_to_pronto(freq, data):
     if freq <= 0:
         freq = 36000
 
-    pronto_carrier = int(1000000 / (freq * pronto_clock))
-    carrier = pronto_carrier * pronto_clock
+    if not isinstance(data[0], list):
+        data = [[], data[:]]
 
-    pronto_data = [0x0000, pronto_carrier, 0x0000, 0x0000]
-    for val in data:
-        duration = abs(val)
-        pronto_data.append(round(duration / carrier))
+    if len(data) == 1:
+        data.insert(0, [])
+
+    pronto_carrier = 1000000.0 / (freq * PRONTO_CLOCK)
+    carrier = pronto_carrier * PRONTO_CLOCK
+
+    pronto_data = [
+        '0000',
+        '%04X' % (int(round(pronto_carrier)),),
+        '%04X' % (len(data[0]) / 2,),
+        '%04X' % (len(data[1]) / 2,)
+    ]
+
+    for rlc in data:
+        for val in rlc:
+            pronto_data.append(
+                '%04X' % (int(abs(val) / carrier),)
+            )
 
     if len(pronto_data) % 2 != 0:
-        pronto_data.append(signal_free)
+        pronto_data.append('%04X' % (SIGNAL_FREE,))
 
-    pronto_data[3] = (len(pronto_data)-4) / 2
-    out = '%04X' % int(pronto_data[0])
-    for v in pronto_data[1:]:
-        out = out + ' %04X' % int(v)
-    return out
+    return ' '.join(pronto_data)
 
 
-def generic_to_rlc(pronto_data, _):  # n_repeat is ignored for Raw
+def generic_to_rlc(pronto_data, n_repeat=0):
     if (
         len(pronto_data) < 6 or
         not (pronto_data[0] == 0x0000 or pronto_data[0] == 0x0100)
@@ -66,54 +76,115 @@ def generic_to_rlc(pronto_data, _):  # n_repeat is ignored for Raw
 
     pronto_carrier = pronto_data[1]
     if pronto_carrier == 0:
-        pronto_carrier = int(1000000 / (36000 * pronto_clock))
+        pronto_carrier = int(1000000 / (36000 * PRONTO_CLOCK))
 
-    pw = pronto_carrier * pronto_clock
-    first_seq = 2 * pronto_data[2]
-    repeat_seq = 2 * pronto_data[3]
-    pulse = True
-    repeat_count = 0
-    start = 4
-    done = False
-    index = start
-    sequence = first_seq
+    pw = float(pronto_carrier) * PRONTO_CLOCK
+    first_seq = pronto_data[2]
+    repeat_seq = pronto_data[3]
 
-    if first_seq == 0:
-        if repeat_seq == 0:
-            return None
-        sequence = repeat_seq
-        repeat_count = 1
+    def _get_sequence(start, sequence_len):
+        res = []
 
-    timing_data = []
-    while not done:
-        time = int(pronto_data[index] * pw)
-        if pulse:
-            timing_data.append(time)
-        else:
-            timing_data.append(-time)
-        index = index + 1
-        pulse = not pulse
+        for i in range(start * 2, (start + sequence_len) * 2, 2):
+            mark = int(pronto_data[i] * pw)
+            space = -int(pronto_data[i + 1] * pw)
+            res.extend([mark, space])
 
-        if index == start + sequence:
-            if repeat_count == 0:
-                if repeat_seq != 0:
-                    start += first_seq
-                    sequence = repeat_seq
-                    index = start
-                    pulse = True
-                    repeat_count += 1
-                else:
-                    done = True
-            elif repeat_count == 1:
-                done = True
-            else:
-                index = start
-                pulse = True
-                repeat_count += 1
-    freq = int(1000000 / (pronto_carrier * pronto_clock))
+        return res
 
-    return freq, timing_data
+    timings = []
 
+    if first_seq != 0:
+        timings += [_get_sequence(2, first_seq)]
+
+    if repeat_seq != 0:
+        timings += [_get_sequence(2 + first_seq, repeat_seq)]
+
+    timings += [timings[-1]] * n_repeat
+    freq = int(1000000 / (pronto_carrier * PRONTO_CLOCK))
+
+    return freq, timings
+
+#
+# def rlc_to_pronto(freq, data):
+#     if freq <= 0:
+#         freq = 36000
+#
+#     pronto_carrier = int(1000000 / (freq * PRONTO_CLOCK))
+#     carrier = pronto_carrier * PRONTO_CLOCK
+#
+#     pronto_data = [0x0000, pronto_carrier, 0x0000, 0x0000]
+#     for val in data:
+#         duration = abs(val)
+#         pronto_data.append(round(duration / carrier))
+#
+#     if len(pronto_data) % 2 != 0:
+#         pronto_data.append(SIGNAL_FREE)
+#
+#     pronto_data[3] = (len(pronto_data)-4) / 2
+#     out = '%04X' % int(pronto_data[0])
+#     for v in pronto_data[1:]:
+#         out = out + ' %04X' % int(v)
+#     return out
+#
+#
+# def generic_to_rlc(pronto_data, _):  # n_repeat is ignored for Raw
+#     if (
+#         len(pronto_data) < 6 or
+#         not (pronto_data[0] == 0x0000 or pronto_data[0] == 0x0100)
+#     ):  # Raw or Learned
+#         raise Exception("Invalid Raw data %s" % str(pronto_data))
+#
+#     pronto_carrier = pronto_data[1]
+#     if pronto_carrier == 0:
+#         pronto_carrier = int(1000000 / (36000 * PRONTO_CLOCK))
+#
+#     pw = pronto_carrier * PRONTO_CLOCK
+#     first_seq = 2 * pronto_data[2]
+#     repeat_seq = 2 * pronto_data[3]
+#     pulse = True
+#     repeat_count = 0
+#     start = 4
+#     done = False
+#     index = start
+#     sequence = first_seq
+#
+#     if first_seq == 0:
+#         if repeat_seq == 0:
+#             return None
+#         sequence = repeat_seq
+#         repeat_count = 1
+#
+#     timing_data = []
+#     while not done:
+#         time = int(pronto_data[index] * pw)
+#         if pulse:
+#             timing_data.append(time)
+#         else:
+#             timing_data.append(-time)
+#         index = index + 1
+#         pulse = not pulse
+#
+#         if index == start + sequence:
+#             if repeat_count == 0:
+#                 if repeat_seq != 0:
+#                     start += first_seq
+#                     sequence = repeat_seq
+#                     index = start
+#                     pulse = True
+#                     repeat_count += 1
+#                 else:
+#                     done = True
+#             elif repeat_count == 1:
+#                 done = True
+#             else:
+#                 index = start
+#                 pulse = True
+#                 repeat_count += 1
+#     freq = int(1000000 / (pronto_carrier * PRONTO_CLOCK))
+#
+#     return freq, timing_data
+#
 
 def encode_bits(data, start, stop, s_false, s_true):
     out = ""
@@ -161,7 +232,7 @@ def rc5_to_rlc(pronto_data, n_repeat=0):
 
     pronto_carrier = pronto_data[1]
     if pronto_carrier == 0x0000:
-        pronto_carrier = int(1000000 / (36000 * pronto_clock))
+        pronto_carrier = int(1000000 / (36000 * PRONTO_CLOCK))
 
     rc5_string = ''
 
@@ -181,7 +252,7 @@ def rc5_to_rlc(pronto_data, n_repeat=0):
 
     final_data = zero_one_sequences(rc5_string, 900)
 
-    freq = int(1000000 / (pronto_carrier * pronto_clock))
+    freq = int(1000000 / (pronto_carrier * PRONTO_CLOCK))
     return freq, final_data
 
 
@@ -197,7 +268,7 @@ def rc5x_to_rlc(pronto_data, n_repeat):
 
     pronto_carrier = pronto_data[1]
     if pronto_carrier == 0x0000:
-        pronto_carrier = int(1000000/(36000*pronto_clock))
+        pronto_carrier = int(1000000/(36000*PRONTO_CLOCK))
 
     if pronto_data[2] + pronto_data[3] != 2:
         raise Exception("Invalid RC5X data %s" % str(pronto_data))
@@ -222,7 +293,7 @@ def rc5x_to_rlc(pronto_data, n_repeat):
 
     final_data = zero_one_sequences(rc5x_string, 900)
 
-    freq = int(1000000 / (pronto_carrier * pronto_clock))
+    freq = int(1000000 / (pronto_carrier * PRONTO_CLOCK))
     return freq, final_data
 
 
@@ -232,7 +303,7 @@ def rc6_to_rlc(pronto_data, n_repeat):
 
     pronto_carrier = pronto_data[1]
     if pronto_carrier == 0x0000:
-        pronto_carrier = int(1000000 / (36000 * pronto_clock))
+        pronto_carrier = int(1000000 / (36000 * PRONTO_CLOCK))
 
     if pronto_data[2] + pronto_data[3] != 1:
         raise Exception("Invalid RC6 data %s" % str(pronto_data))
@@ -251,7 +322,7 @@ def rc6_to_rlc(pronto_data, n_repeat):
 
     final_data = zero_one_sequences(rc6_string, 450)
 
-    freq = int(1000000 / (pronto_carrier * pronto_clock))
+    freq = int(1000000 / (pronto_carrier * PRONTO_CLOCK))
     return freq, final_data
 
 
@@ -261,7 +332,7 @@ def rc6a_to_rlc(pronto_data, n_repeat):
 
     pronto_carrier = pronto_data[1]
     if pronto_carrier == 0x0000:
-        pronto_carrier = int(1000000 / (36000 * pronto_clock))
+        pronto_carrier = int(1000000 / (36000 * PRONTO_CLOCK))
 
     if pronto_data[2] + pronto_data[3] != 2:
         raise Exception("Invalid RC6A data %s" % str(pronto_data))
@@ -286,7 +357,7 @@ def rc6a_to_rlc(pronto_data, n_repeat):
 
     final_data = zero_one_sequences(rc6a_string, 450)
 
-    freq = int(1000000 / (pronto_carrier * pronto_clock))
+    freq = int(1000000 / (pronto_carrier * PRONTO_CLOCK))
     return freq, final_data
 
 

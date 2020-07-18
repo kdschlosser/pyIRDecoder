@@ -31,7 +31,7 @@ import os
 
 class Config(object):
     def __init__(self, path=None):
-        self._database_url = 'eventghost.net:43847'
+        self._database_url = 'http://eventghost.net:43847'
 
         if path is None:
             self._xml = xml_handler.XMLRootElement('IRConfig')
@@ -66,16 +66,20 @@ class Config(object):
 
     @database_url.setter
     def database_url(self, value):
+        print 'setting database_url:', value
         self._database_url = value
 
     def __getattr__(self, item):
+        if item == 'database_url':
+            return self.__class__.database_url.fget(self)
+
         if item in self.__dict__:
             return self.__dict__[item]
 
         return getattr(self._xml, item)
 
     def __setattr__(self, key, value):
-        if key in ('_xml', '_database_url'):
+        if key in ('_xml', '_database_url', 'database_url'):
             object.__setattr__(self, key, value)
         else:
             setattr(self._xml, key, value)

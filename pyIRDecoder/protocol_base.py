@@ -54,15 +54,15 @@ class ProtocolBaseMeta(type):
         if cls not in ProtocolBaseMeta._classes:
             ProtocolBaseMeta._classes += [cls]
 
-    def __call__(cls, xml=None):
+    def __call__(cls, parent=None, xml=None):
         if xml is not None and cls == IrProtocolBase:
             for protocol in ProtocolBaseMeta._classes:
                 if protocol.__name__ == xml.name:
-                    return protocol(xml)
+                    return protocol(parent, xml)
 
-            raise RuntimeError('Inable to locate a protocol named ' + xml.name)
+            raise RuntimeError('Unable to locate a protocol named ' + xml.name)
 
-        return super(ProtocolBaseMeta, cls).__call__(xml)
+        return super(ProtocolBaseMeta, cls).__call__(parent, xml)
 
 
 @six.add_metaclass(ProtocolBaseMeta)
@@ -81,21 +81,22 @@ class IrProtocolBase(object):
     _repeat_lead_out = []
     _middle_timings = []
     _repeat_bursts = []
+    _has_repeat_lead_out = False
 
     _parameters = []
     encode_parameters = []
     repeat_timeout = 0
 
-    def __init__(self, xml=None):
+    def __init__(self, parent=None, xml=None):
         import threading
         self.__last_code = None
         self.__code_lock = threading.RLock()
         self._enabled = True
-        self._tolerance = 1
+        self._tolerance = 20
         self._frequency_tolerance = 2
         self._saved_codes = []
         self._sequence = []
-        self._parent = None
+        self._parent = parent
 
         self._lead_in = self._lead_in[:]
         self._lead_out = self._lead_out[:]
@@ -130,6 +131,15 @@ class IrProtocolBase(object):
                 code.save()
 
         self._xml = xml
+
+    @property
+    def has_repeat_lead_out(self):
+        return self._has_repeat_lead_out
+
+    @property
+    def config(self):
+        if self._parent is not None:
+            return self._parent.config
 
     @property
     def _last_code(self):
@@ -232,8 +242,8 @@ class IrProtocolBase(object):
 
         return []
 
-    def __call__(self):
-        cls = self.__class__()
+    def __call__(self, parent):
+        cls = self.__class__(parent)
         return cls
 
     @property

@@ -68,83 +68,13 @@ class Denon(protocol_base.IrProtocolBase):
         return f
 
     def decode(self, data, frequency=0):
-        try:
-            c = protocol_base.code_wrapper.CodeWrapper(
-                self.encoding,
-                self._lead_in[:],
-                self._lead_out[:],
-                self._middle_timings[:],
-                self._bursts[:],
-                self.tolerance,
-                data[:]
-            )
-
-            if c.num_bits > self.bit_count:
-                raise DecodeError('To many bits')
-            elif c.num_bits < self.bit_count:
-                raise DecodeError('Not enough bits')
-
-            params = dict(frequency=self.frequency)
-            for name, start, stop in self._parameters:
-                params[name] = c.get_value(start, stop)
-
-            code = protocol_base.IRCode(self, c.original_code, list(c), params)
-            code._code = c
-
-            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-        except DecodeError:
-            c = protocol_base.code_wrapper.CodeWrapper(
-                self.encoding,
-                self._lead_in[:],
-                self._lead_out[:],
-                [],
-                self._bursts[:],
-                self.tolerance,
-                data[:]
-            )
-
-            if c.num_bits > self.bit_count // 2:
-                raise DecodeError('To many bits')
-            elif c.num_bits < self.bit_count // 2:
-                raise DecodeError('Not enough bits')
-
-            params = dict(frequency=self.frequency)
-            for name, start, stop in self._parameters[:3]:
-                params[name] = c.get_value(start, stop)
-
-            code = protocol_base.IRCode(self, c.original_code, list(c), params)
-            code._code = c
-
-            if len(self._sequence) == 0:
-                self._sequence.append(code)
-                raise RepeatLeadIn
-
-            c = self._sequence[0]
-
-            params = dict(
-                frequency=self.frequency,
-                D=c.device,
-                F=c.function,
-                C0=c.C0,
-                D_CHECKSUM=code.device,
-                F_CHECKSUM=code.function,
-                C1=code.c0
-            )
-
-            code = protocol_base.IRCode(
-                self,
-                c.original_rlc + code.original_rlc,
-                c.normalized_rlc + code.normalized_rlc,
-                params
-            )
-            del self._sequence[:]
+        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
         if self._last_code is not None:
             if self._last_code == code:
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
-            self._last_code = None
 
         if code.c0 != 0 or code.c1 != 3:
             raise DecodeError('invalid checksum')
@@ -181,8 +111,8 @@ class Denon(protocol_base.IrProtocolBase):
 
         code = protocol_base.IRCode(
             self,
-            [packet1[:], packet2[:]],
-            [packet1[:], packet2[:]] * (repeat_count + 1),
+            [packet1[:] + packet2[:]],
+            [packet1[:] + packet2[:]] * (repeat_count + 1),
             params,
             repeat_count
         )

@@ -46,6 +46,8 @@ class Thomson7(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[TIMING, -TIMING * 4], [TIMING, -TIMING * 9]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['D', 4],
         ['F', 6],
@@ -63,8 +65,8 @@ class Thomson7(protocol_base.IrProtocolBase):
         ['function', 0, 127],
     ]
 
-    def __init__(self, xml=None):
-        protocol_base.IrProtocolBase.__init__(self, xml)
+    def __init__(self, parent=None, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, parent, xml)
         if xml is None:
             self._enabled = False
 

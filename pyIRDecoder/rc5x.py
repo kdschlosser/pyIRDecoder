@@ -45,6 +45,8 @@ class RC5x(protocol_base.IrProtocolBase):
     _middle_timings = [-TIMING * 4]
     _bursts = [[TIMING, -TIMING], [-TIMING, TIMING]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['D', 5],
         ['S', 6],

@@ -51,6 +51,8 @@ class NRC17(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['F', 8],
         ['D', 4],

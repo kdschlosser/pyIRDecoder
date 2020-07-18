@@ -65,16 +65,18 @@ class Bose(protocol_base.IrProtocolBase):
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
 
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
         func_checksum = self._calc_checksum(code.function)
 
         if func_checksum != code.f_checksum:
-            if self._last_code is not None:
-                self._last_code.repeat_timer.start()
-
             raise DecodeError('Checksum failed')
 
-        if self._last_code is None:
-            self._last_code = code
+        self._last_code = code
 
         return code
 

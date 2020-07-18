@@ -221,6 +221,8 @@ class SkyPlus(protocol_base.IrProtocolBase):
     _middle_timings = [{'start': 4, 'stop': 5, 'bursts': [[-TIMING * 2, TIMING * 2], [TIMING * 2, -TIMING * 2]]}]
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['F', 18],
     ]

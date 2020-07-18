@@ -43,6 +43,8 @@ class Velleman(protocol_base.IrProtocolBase):
     _middle_timings = []
     _bursts = [[700, -5060], [700, -7590]]
 
+    _has_repeat_lead_out = True
+
     _code_order = [
         ['D', 3],
         ['F', 6],

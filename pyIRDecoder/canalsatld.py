@@ -71,24 +71,20 @@ class CanalSatLD(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+        if self._last_code is not None:
+            if (
+                self._last_code == code and
+                code.toggle == 1
+            ):
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
+
         func_checksum = self._calc_checksum(code.function)
 
         if func_checksum != code.f_checksum or code.c0 != 0:
-            if self._last_code:
-                self._lst_code.repeat_timer.start()
             raise DecodeError('Checksum failed')
-
-        if self._last_code is not None:
-            if self._last_code != code:
-                self._last_code.repeat_timer.stop()
-                self._last_code = None
-
-            elif code.toggle != 1:
-                self._last_code.repeat_timer.stop()
-                self._last_code = None
-                raise DecodeError('toggle bit out of sync')
-            else:
-                return self._last_code
 
         if code.toggle == 0:
             code._data['T'] = 1

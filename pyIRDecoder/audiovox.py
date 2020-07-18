@@ -61,8 +61,8 @@ class Audiovox(protocol_base.IrProtocolBase):
         ['function', 0, 255],
     ]
 
-    def __init__(self, xml=None):
-        protocol_base.IrProtocolBase.__init__(self, xml)
+    def __init__(self, parent=None, xml=None):
+        protocol_base.IrProtocolBase.__init__(self, parent, xml)
 
         if xml is None:
             self._enabled = False

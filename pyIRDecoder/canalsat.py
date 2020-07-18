@@ -79,7 +79,6 @@ class CanalSat(protocol_base.IrProtocolBase):
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
-            self._last_code = None
 
         if code.toggle == 0:
             code._data['T'] = 1

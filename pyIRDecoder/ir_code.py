@@ -31,11 +31,13 @@ from . import utils
 from . import xml_handler
 
 
+_timer_thread_worker = thread_worker.TimerThreadWorker()
+_process_thread_worker = thread_worker.ProcessThreadWorker()
+
+
 class Timer(object):
     def __init__(self, func, duration):
         self.func = func
-        self.timer_thread_worker = thread_worker.TimerThreadWorker()
-        self.process_thread_worker = thread_worker.ProcessThreadWorker()
         self._duration = duration
         self._adjusted_duration = duration
         self.timer = high_precision_timers.TimerUS()
@@ -53,7 +55,7 @@ class Timer(object):
             return True
 
         if self.timer.elapsed() >= self.adjusted_duration:
-            self.process_thread_worker.add(self.func)
+            _process_thread_worker.add(self.func)
             return True
 
         return False
@@ -61,12 +63,18 @@ class Timer(object):
     def stop(self):
         if self.timer is not None:
             self.timer = None
-            self.process_thread_worker.add(self.func)
+            _process_thread_worker.add(self.func)
 
     def start(self, timer):
         self._adjusted_duration = self.duration + (self.duration * 0.20) + (timer.elapsed() * 4)
+        if self.timer is None:
+            self.timer = high_precision_timers.TimerUS()
+
         self.timer.reset()
-        self.timer_thread_worker.add(self)
+        _timer_thread_worker.add(self)
+
+    def cancel(self):
+        self.timer = None
 
     @property
     def is_running(self):
@@ -75,7 +83,7 @@ class Timer(object):
 
 class IRCode(object):
 
-    def __init__(self, decoder, original_rlc, normalized_rlc, data, repeat_count=-1):
+    def __init__(self, decoder, original_rlc, normalized_rlc, data, repeat_count=-1, name=None):
         if not isinstance(original_rlc[0], list):
             original_rlc = [original_rlc]
 
@@ -87,8 +95,7 @@ class IRCode(object):
         self._normalized_rlc = normalized_rlc
         self._data = data
         self._code = None
-        self._name = None
-        self._name = str(self)
+        self._name = name
         self._xml = None
         self._int = None
         self._hex = None
@@ -106,9 +113,29 @@ class IRCode(object):
         self._repeat_duration = repeat_timeout
         self.bind_released_callback(decoder.reset)
 
+        if self._name is None:
+            _process_thread_worker.add(self.__set_name)
+
     def __iter__(self):
         for item in self.normalized_rlc:
             yield item[:]
+
+    def __repr__(self):
+        mapping = {
+            'M': 'mode',
+            'D': 'device',
+            'F': 'function',
+            'S': 'sub_device',
+            'E': 'extended_function',
+        }
+        params = []
+
+        for param, _ in self._decoder._code_order:
+            value = self._data[param]
+            param = mapping.get(param, param.lower())
+            params += [param + '=' + str(value)]
+
+        return 'IrCode(' + ', '.join(params) + ')'
 
     @property
     def repeat_count(self):
@@ -130,9 +157,42 @@ class IRCode(object):
         if self not in self.decoder._saved_codes:
             self.decoder._saved_codes.append(self)
 
-    def remove(self):
+    def delete(self):
         if self in self.decoder._saved_codes:
             self.decoder._saved_codes.remove(self)
+
+    def __set_name(self):
+        config = self.decoder.config
+
+        if config is None:
+            return
+
+        url = self.decoder.config.database_url
+
+        if not url:
+            return
+
+        import requests
+
+        try:
+            response = requests.get(url)
+            if response.status_code != 200:
+                raise requests.ConnectionError
+        except requests.ConnectionError:
+            return
+        else:
+            token = response.content
+            response = requests.get(
+                url + token + '/get_name',
+                params=dict(
+                    decoder=self.decoder.name,
+                    code=self.hexadecimal
+                )
+            )
+            if response.status_code != 200:
+                return
+            else:
+                self._name = response.content
 
     @staticmethod
     def load_from_xml(xml, decoder):
@@ -146,11 +206,12 @@ class IRCode(object):
 
         name = params.pop('NAME')
         params['frequency'] = params.pop('FREQUENCY')
+        params.pop('DECODER')
         original_rlc = list(int(item) for item in xml.OriginalRLC.text.split(', '))
         normalized_rlc = list(int(item) for item in xml.NormalizedRLC.text.split(', '))
 
-        self = IRCode(decoder, original_rlc, normalized_rlc, params)
-        self.name = name
+        self = IRCode(decoder, original_rlc, normalized_rlc, params, name=name)
+
         self._xml = xml
         return self
 
@@ -253,56 +314,51 @@ class IRCode(object):
 
     @property
     def original_rlc_pronto(self):
-        res = []
-        for code in self._original_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
+        code = []
+        for rlc in self._original_rlc:
+            code += [abs(item) for item in rlc]
 
-        return res
+        return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
     def normalized_rlc_pronto(self):
-        res = []
-        for code in self._normalized_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
+        code = []
+        for rlc in self._normalized_rlc:
+            code += [abs(item) for item in rlc]
 
-        return res
+        return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
     def original_mce_rlc(self):
-        res = []
-        for code in self._original_rlc:
-            res += [utils.build_mce_rlc(code[:])]
+        code = []
+        for rlc in self._original_rlc:
+            code += [utils.build_mce_rlc(rlc[:])]
 
-        return res
+        return code
 
     @property
     def original_mce_pronto(self):
-        res = []
-        for code in self.original_mce_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
+        code = []
+        for rlc in self.original_mce_rlc:
+            code += [abs(item) for item in rlc]
 
-        return res
+        return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
     def normalized_mce_rlc(self):
-        res = []
-        for code in self._normalized_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
+        code = []
+        for rlc in self._normalized_rlc:
+            code += [utils.build_mce_rlc(rlc[:])]
 
-        return res
+        return code
 
     @property
     def normalized_mce_pronto(self):
-        res = []
-        for code in self.normalized_mce_rlc:
-            code = [abs(item) for item in code]
-            res += [pronto.rlc_to_pronto(self.frequency, code)]
+        code = []
+        for rlc in self.normalized_mce_rlc:
+            code += [abs(item) for item in rlc]
 
-        return res
+        return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
     def device(self):
@@ -395,7 +451,7 @@ class IRCode(object):
         self._name = value
 
     @property
-    def hexdecimal(self):
+    def hexadecimal(self):
         if self._hex is None:
             res = hex(int(self))[2:].upper().rstrip('L')
             self._hex = '0x' + res.zfill(len(res) + (len(res) % 2))

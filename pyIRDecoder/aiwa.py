@@ -77,8 +77,11 @@ class Aiwa(protocol_base.IrProtocolBase):
 
     def decode(self, data, frequency=0):
         code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-        if self._last_code is not None and self._last_code == code:
-            return code
+        if self._last_code is not None:
+            if self._last_code == code:
+                return self._last_code
+
+            self._last_code.repeat_timer.stop()
 
         device_checksum, sub_checksum, func_checksum = (
             self._calc_checksum(code.device, code.sub_device, code.function)
@@ -89,9 +92,9 @@ class Aiwa(protocol_base.IrProtocolBase):
             sub_checksum != code.s_checksum or
             func_checksum != code.f_checksum
         ):
-            self._last_code = None
             raise DecodeError('Checksum failed')
 
+        self._last_code = code
         return code
 
     def encode(self, device, sub_device, function, repeat_count=0):

@@ -85,8 +85,7 @@ class DenonK(protocol_base.IrProtocolBase):
             if code == self._last_code:
                 return self._last_code
 
-            self._last_code.stop()
-            self._last_code = None
+            self._last_code.repeat_timer.stop()
 
         if code.c0 != 84 or code.c1 != 50 or code.c2 != 0:
             raise DecodeError('Checksum failed')

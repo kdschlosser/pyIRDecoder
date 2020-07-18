@@ -27,7 +27,7 @@
 import threading
 import traceback
 import six
-from collections import deque
+import atexit
 
 
 class ThreadWorkerSingleton(type):
@@ -53,6 +53,15 @@ class TimerThreadWorker(threading.Thread):
         self.queue = []
         threading.Thread.__init__(self)
         self.daemon = True
+
+    def start(self):
+        threading.Thread.start(self)
+        atexit.register(self.stop)
+
+    def stop(self):
+        self.stop_event.set()
+        self.queue_event.set()
+        self.join()
 
     def add(self, timer):
         if timer not in self.queue:
@@ -90,21 +99,34 @@ class ProcessThreadWorker(threading.Thread):
     def __init__(self):
         self.stop_event = threading.Event()
         self.queue_event = threading.Event()
-        self.queue = deque()
+        self.queue = []
         threading.Thread.__init__(self)
         self.daemon = True
 
-    def add(self, func):
-        self.queue.append(func)
+    def start(self):
+        threading.Thread.start(self)
+        atexit.register(self.stop)
+
+    def stop(self):
+        self.stop_event.set()
+        self.queue_event.set()
+        self.join()
+
+    def add(self, func, *args):
+        self.queue.append((func, args))
         self.queue_event.set()
 
     def run(self):
         while not self.stop_event.is_set():
             self.queue_event.wait()
-            while len(self.queue):
-                func = self.queue.popleft()
+            while self.queue:
                 try:
-                    func()
+                    func, args = self.queue.pop(0)
+                except IndexError:
+                    break
+
+                try:
+                    func(*args)
                 except:
                     traceback.print_exc()
 

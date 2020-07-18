@@ -125,6 +125,8 @@ class MCE(protocol_base.IrProtocolBase):
         ['function', 0, 0x5E],
     ]
 
+    _has_repeat_lead_out = True
+
     @property
     def function(self):
         return list(MCE_COMMANDS.keys())
