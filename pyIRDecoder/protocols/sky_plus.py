@@ -160,7 +160,7 @@ KEYBOARD = {
     0xD1: 'Key.Euro',
     0xD2: 'Key.!',
     0xD3: 'Key."',
-    0xD4: 'Key.Pound',
+    0xD4: 'Key.#',
     0xD5: 'Key.$',
     0xD6: 'Key.%',
     0xD7: 'Key.^',
@@ -212,6 +212,9 @@ class SkyPlus(protocol_base.IrProtocolBase):
     """
     IR decoder for the SkyPlus protocol.
     """
+    REMOTE_SUBDEVICE = REMOTE_SUBDEVICE
+    KEYBOARD_SUBDEVICE = KEYBOARD_SUBDEVICE
+
     irp = (
         '{36k,444,msb}<-1,1|1,-1>'
         '(6,-2,1:1,6:3,<-2,2|2,-2>(1-(T:1)),D:12,F:8,-100m)*'
@@ -298,7 +301,8 @@ class SkyPlus(protocol_base.IrProtocolBase):
 
         if self._last_code is not None:
             if (
-                self._last_code == code and
+                self._last_code.function == code.function and
+                self._last_code.device == code.device and
                 self._last_code.toggle == code.toggle
             ):
                 return self._last_code
@@ -306,7 +310,10 @@ class SkyPlus(protocol_base.IrProtocolBase):
             last_code = self._last_code
             self._last_code.repeat_timer.stop()
 
-            if last_code == code:
+            if (
+                last_code.function == code.function and
+                last_code.device == code.device
+            ):
                 raise RepeatLeadOutError
 
         self._last_code = code

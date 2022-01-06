@@ -35,22 +35,38 @@ protocol = protocols.SkyPlus
 
 
 class SkyPlus(object):
+    rlc = [[
+        2664, -888, 444, -444, 444, -444, 444, -888, 1332, -1332, 444, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 888,
+        -444, 444, -888, 444, -444, 444, -444, 888, -888, 888, -444, 444,
+        -444, 444, -888, 444, -444, 444, -100000
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 444, -888, 888, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444,
+        -444, 888, -444, 444, -888, 444, -444, 444, -444, 888, -888, 888,
+        -444, 444, -444, 444, -888, 444, -444, 444, -100000
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 1332, -1332, 444, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444,
+        -444, 444, -444, 888, -888, 888, -888, 888, -444, 444, -444, 444,
+        -888, 444, -444, 444, -444, 444, -100000
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 444, -888, 888, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444,
+        -444, 444, -444, 444, -444, 888, -888, 888, -888, 888, -444, 444,
+        -444, 444, -888, 444, -444, 444, -444, 444, -100000
+    ]]
 
-    # def _test_decode(self, _=None, __=None):
-    #     params = [dict(device=REMOTE_SUBDEVICE, function=0x7D)]
-    #     rlc = self.encode(REMOTE_SUBDEVICE, 0x7D)
-    #
-    #     return object._test_decode(
-    #         self,
-    #         rlc.normalized_rlc,
-    #         params
-    #     )
-    rlc = []
-    params = []
+    params = [
+        dict(device=protocol.REMOTE_SUBDEVICE, function=0x5C),
+        None,
+        dict(device=protocol.KEYBOARD_SUBDEVICE, function=0xB8),
+        None
+    ]
 
 
 def test_decode():
-    for rlc, params in zip(SkyPlus.rlc, SkyPlus.params):
+    for i, (rlc, params) in enumerate(list(zip(SkyPlus.rlc, SkyPlus.params))):
         try:
             ir_code = protocol.decode(rlc, protocol.frequency)
         except (RepeatLeadInError, RepeatLeadOutError):
@@ -65,6 +81,8 @@ def test_decode():
                 value
             )
 
+        if i == 0:
+            print()
         print(ir_code)
 
 
@@ -97,7 +115,5 @@ def test_encode():
         print()
         print(ir_code)
         print(new_ir_code)
-        print()
+        
         assert new_ir_code == ir_code
-
-        break

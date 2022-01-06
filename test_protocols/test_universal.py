@@ -63,5 +63,5 @@ def test_decode():
                 getattr(ir_code, key),
                 value
             )
-
+        print()
         print(ir_code)

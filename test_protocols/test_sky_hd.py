@@ -35,32 +35,38 @@ protocol = protocols.SkyHD
 
 
 class SkyHD(object):
-    #
-    # def _test_decode(self, _=None, __=None):
-    #     rlc = self.encode(REMOTE_SUBDEVICE, 0x28)
-    #     params = [dict(device=REMOTE_SUBDEVICE, function=0x28)]
-    #
-    #     object._test_decode(
-    #         self,
-    #         rlc.normalized_rlc,
-    #         params
-    #     )
-    #
-    #     rlc = self.encode(KEYBOARD_SUBDEVICE, 0x8B)
-    #     params = [dict(device=KEYBOARD_SUBDEVICE, function=0x8B)]
-    #
-    #     return object._test_decode(
-    #         self,
-    #         rlc.normalized_rlc,
-    #         params
-    #     )
+    rlc = [[
+        2664, -888, 444, -444, 444, -444, 444, -888, 1332, -1332, 444, -444,
+        444, -444, 444, -444, 444, -444, 888, -888, 888, -444, 444, -444, 444,
+        -888, 444, -444, 444, -444, 444, -444, 888, -888, 888, -888, 444,
+        -444, 444, -444, 444, -100000
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 444, -888, 888, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 888, -888, 888, -444, 444,
+        -444, 444, -888, 444, -444, 444, -444, 444, -444, 888, -888, 888,
+        -888, 444, -444, 444, -444, 444, -100000
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 1332, -1332, 444, -444,
+        444, -444, 444, -444, 444, -444, 888, -888, 888, -444, 444, -444, 444,
+        -888, 888, -444, 444, -888, 444, -444, 444, -444, 888, -888, 888,
+        -444, 444, -100444
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 444, -888, 888, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 888, -888, 888, -444, 444,
+        -444, 444, -888, 888, -444, 444, -888, 444, -444, 444, -444, 888,
+        -888, 888, -444, 444, -100444
+    ]]
 
-    rlc = []
-    params = []
+    params = [
+        dict(device=protocol.REMOTE_SUBDEVICE, function=0x28),
+        None,
+        dict(device=protocol.KEYBOARD_SUBDEVICE, function=0x8B),
+        None
+    ]
 
 
 def test_decode():
-    for rlc, params in zip(SkyHD.rlc, SkyHD.params):
+    for i, (rlc, params) in enumerate(list(zip(SkyHD.rlc, SkyHD.params))):
         try:
             ir_code = protocol.decode(rlc, protocol.frequency)
         except (RepeatLeadInError, RepeatLeadOutError):
@@ -75,6 +81,8 @@ def test_decode():
                 value
             )
 
+        if i == 0:
+            print()
         print(ir_code)
 
 
@@ -107,7 +115,5 @@ def test_encode():
         print()
         print(ir_code)
         print(new_ir_code)
-        print()
+        
         assert new_ir_code == ir_code
-
-        break

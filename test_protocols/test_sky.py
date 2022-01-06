@@ -35,32 +35,38 @@ protocol = protocols.Sky
 
 
 class Sky(object):
-    #
-    # def _test_decode(self, _=None, __=None):
-    #     params = [None, dict(function=0x5C)]
-    #     rlc = self.encode(REMOTE_SUBDEVICE, 0x5C)
-    #
-    #     object._test_decode(
-    #         self,
-    #         rlc.normalized_rlc,
-    #         params
-    #     )
-    #
-    #     params = [None, dict(function=0xF5)]
-    #     rlc = self.encode(KEYBOARD_SUBDEVICE, 0xF5)
-    #
-    #     return object._test_decode(
-    #         self,
-    #         rlc.normalized_rlc,
-    #         params
-    #     )
+    rlc = [[
+        2664, -888, 444, -444, 444, -444, 444, -888, 1332, -1332, 444, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444,
+        -444, 444, -444, 444, -444, 444, -444, 444, -444, 888, -888, 888,
+        -444, 444, -444, 444, -888, 444, -444, 444, -100000
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 444, -888, 888, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444,
+        -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 888,
+        -888, 888, -444, 444, -444, 444, -888, 444, -444, 444, -100000
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 1332, -1332, 444, -444,
+        444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444,
+        -444, 444, -444, 888, -444, 444, -444, 444, -444, 444, -444, 444, -444,
+        444, -888, 888, -888, 888, -100444
+    ], [
+        2664, -888, 444, -444, 444, -444, 444, -888, 444, -888, 888, -444, 444,
+        -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444, 444, -444,
+        444, -444, 444, -444, 888, -444, 444, -444, 444, -444, 444, -444, 444,
+        -444, 444, -888, 888, -888, 888, -100444
+    ]]
 
-    rlc = []
-    params = []
+    params = [
+        dict(device=protocol.REMOTE_SUBDEVICE, function=0x5C),
+        None,
+        dict(device=protocol.KEYBOARD_SUBDEVICE, function=0xF5),
+        None
+    ]
 
 
 def test_decode():
-    for rlc, params in zip(Sky.rlc, Sky.params):
+    for i, (rlc, params) in enumerate(list(zip(Sky.rlc, Sky.params))):
         try:
             ir_code = protocol.decode(rlc, protocol.frequency)
         except (RepeatLeadInError, RepeatLeadOutError):
@@ -74,6 +80,8 @@ def test_decode():
                 getattr(ir_code, key),
                 value
             )
+        if i == 0:
+            print()
 
         print(ir_code)
 
@@ -107,7 +115,5 @@ def test_encode():
         print()
         print(ir_code)
         print(new_ir_code)
-        print()
+        
         assert new_ir_code == ir_code
-
-        break
