@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# ***********************************************************************************
+# *****************************************************************************
 # MIT License
 #
 # Copyright (c) 2020 Kevin G. Schlosser
@@ -9,20 +9,21 @@
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is furnished
-# to do so, subject to the following conditions:
+# copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+# THE SOFTWARE.
 
-# ***********************************************************************************
+# ****************************************************************************
 
 
 from . import xml_handler
@@ -66,11 +67,12 @@ class Config(object):
 
     @database_url.setter
     def database_url(self, value):
-        print 'setting database_url:', value
+        print('setting database_url:', value)
         self._database_url = value
 
     def __getattr__(self, item):
         if item == 'database_url':
+            # noinspection PyArgumentList
             return self.__class__.database_url.fget(self)
 
         if item in self.__dict__:
@@ -101,7 +103,9 @@ class Config(object):
 
     def save(self, path=None):
         if self._parent is None:
-            raise RuntimeError('Config instance is not attached to an IRDecoder instance')
+            raise RuntimeError(
+                'Config instance is not attached to an IRDecoder instance'
+            )
         if path is None:
             path = self.path
         else:
@@ -109,7 +113,9 @@ class Config(object):
             path = os.path.abspath(path)
 
         if path is None:
-            raise RuntimeError('You must supply a path to save the config file to.')
+            raise RuntimeError(
+                'You must supply a path to save the config file to.'
+            )
 
         for i, decoder in enumerate(self._parent):
             self._xml.pop(i)

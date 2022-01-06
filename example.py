@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# ***********************************************************************************
+# *****************************************************************************
 # MIT License
 #
 # Copyright (c) 2020 Kevin G. Schlosser
@@ -9,20 +9,21 @@
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is furnished
-# to do so, subject to the following conditions:
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
-# ***********************************************************************************
+# ****************************************************************************
 
 from __future__ import print_function
 import random
@@ -36,6 +37,13 @@ ir_decoder = pyIRDecoder.IRDecoder()
 ir_encoder = pyIRDecoder.IREncoder()
 
 decoding_times = []
+
+failures = []
+skipped = []
+universals = []
+repeat_error = []
+decode_error = []
+success = []
 
 
 class TestBase(object):
@@ -55,6 +63,7 @@ class TestBase(object):
         try:
             if not cls.is_enabled():
                 print('skipping', cls.__name__)
+                skipped.append(cls.__name__)
                 return
 
             params = {}
@@ -68,14 +77,13 @@ class TestBase(object):
 
                 params[name] = val
 
-            print('encoding', cls.__name__, '0 repeats')
+            print('encoding', cls.__name__)
             print('parameters:', params)
 
             start = high_precision_timers.TimerUS()
-
             rlc = cls.encoder.encode(**params)
-
             stop = start.elapsed()
+
             print('encoding duration:', stop, 'us')
             print('rlc:')
             print('[')
@@ -131,9 +139,15 @@ class TestBase(object):
 
             print()
             if code is None:
+                for c in rlc:
+                    c = cls.decoder.decode(c, rlc.frequency)
+                    print(c)
+
+                failures.append(cls.__name__)
                 raise RuntimeError
 
             if code.decoder == ir_decoder.Universal:
+                universals.append(cls.__name__)
                 raise RuntimeError
 
             if not isinstance(cls.decoder, code.decoder.__class__):
@@ -148,6 +162,7 @@ class TestBase(object):
             print('code length:', code.repeat_timer.duration / 1000.0, 'ms')
 
             if not wait_event.is_set():
+                repeat_error.append(cls.__name__)
                 raise RuntimeError('repeat timeout problem')
 
             print()
@@ -158,13 +173,16 @@ class TestBase(object):
                 v = getattr(code, key.lower())
                 print(key + ' ' * (20 - len(key)) + str(v) + ' ' * (11 - len(str(v))) + str(val))
                 if v != val:
+                    decode_error.append(cls.__name__)
                     raise ValueError(key + ', ' + str(val) + ', ' + str(v))
 
             print()
             print(code, 'successfully validated')
             print()
             print()
+            success.append(cls.__name__)
         except:
+            failures.append(cls.__name__)
             print()
             traceback.print_exc()
             print()
@@ -826,16 +844,6 @@ class ScAtl6(TestBase):
     encoder = ir_encoder.ScAtl6
 
 
-class Sejin138(TestBase):
-    decoder = ir_decoder.Sejin138
-    encoder = ir_encoder.Sejin138
-
-
-class Sejin156(TestBase):
-    decoder = ir_decoder.Sejin156
-    encoder = ir_encoder.Sejin156
-
-
 class Sharp(TestBase):
     decoder = ir_decoder.Sharp
     encoder = ir_encoder.Sharp
@@ -955,11 +963,11 @@ class Viewstar(TestBase):
     decoder = ir_decoder.Viewstar
     encoder = ir_encoder.Viewstar
 
-
-class Whynter(TestBase):
-    decoder = ir_decoder.Whynter
-    encoder = ir_encoder.Whynter
-
+#
+# class Whynter(TestBase):
+#     decoder = ir_decoder.Whynter
+#     encoder = ir_encoder.Whynter
+#
 
 class Zaptor36(TestBase):
     decoder = ir_decoder.Zaptor36
@@ -1110,8 +1118,6 @@ if __name__ == '__main__':
     Samsung36.test()
     SamsungSMTG.test()
     ScAtl6.test()
-    # Sejin138.test()
-    # Sejin156.test()
     Sharp.test()
     Sharp1.test()
     Sharp2.test()
@@ -1132,12 +1138,12 @@ if __name__ == '__main__':
     Thomson.test()
     # Velleman.test()
     Viewstar.test()
-    Whynter.test()
+    # Whynter.test()
     Zaptor36.test()
     Zaptor56.test()
     XBox360.test()
     XBoxOne.test()
-    # Rs200.test()
+    Rs200.test()
     RC6MBIT.test()
 
     RC57F.enable(False)
@@ -1171,10 +1177,22 @@ if __name__ == '__main__':
     Roku.enable(True)
     Roku.test()
 
-    max_decode = max(decoding_times)
-    avg_decode = sum(decoding_times) / float(len(decoding_times))
+    if decoding_times:
+        max_decode = max(decoding_times)
+        avg_decode = sum(decoding_times) / float(len(decoding_times))
+    else:
+        max_decode = 0
+        avg_decode = 0
 
     print('max decoding time:', max_decode, 'us (' + str(max_decode / 1000.0) + ' ms)')
     print('average decoding time:', avg_decode, 'us (' + str(avg_decode / 1000.0) + ' ms)')
     print('number of decodes:', len(decoding_times))
     print('total run time:', run_start.elapsed() / 1000.0, 'ms')
+
+    print('failures:', len(failures), failures)
+    print('success:', len(success), success)
+    print('skipped:', len(skipped), skipped)
+    print('universals:', len(universals), universals)
+    print('repeat_error:', len(repeat_error), repeat_error)
+    print('decode_error:', len(decode_error), decode_error)
+

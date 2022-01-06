@@ -186,6 +186,7 @@ def generic_to_rlc(pronto_data, n_repeat=0):
 #     return freq, timing_data
 #
 
+
 def encode_bits(data, start, stop, s_false, s_true):
     out = ""
     for i in range(start, stop-1, -1):
@@ -377,7 +378,9 @@ def pronto_to_rlc(pronto, repeat_count=0):
         handler = handlers[pronto_data[0]]
     except KeyError:
         raise Exception(
-            "Don't have a decoder for pronto format %s" % hex(pronto_data[0])[2:].upper()
+            "Don't have a decoder for pronto format %s" % hex(
+                pronto_data[0]
+            )[2:].upper()
         )
 
     freq, timings = handler(pronto_data, repeat_count)

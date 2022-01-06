@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# ***********************************************************************************
+# *****************************************************************************
 # MIT License
 #
 # Copyright (c) 2020 Kevin G. Schlosser
@@ -9,40 +9,43 @@
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is furnished
-# to do so, subject to the following conditions:
+# copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+# THE SOFTWARE.
 
-# ***********************************************************************************
+# ****************************************************************************
 
 from __future__ import print_function
 import math
 import six
+from typing import Sequence, Optional
 
 from . import code_wrapper
 from . import xml_handler
+
 from . import (
     DecodeError,
-    RepeatLeadIn,
-    RepeatLeadOut
+    RepeatLeadInError,
+    RepeatLeadOutError,
+    TooManyBitsError,
+    NotEnoughBitsError,
+    IRStreamError,
+    IRException
 )
 
+from .config import Config
+from .integer_wrapper import IntegerWrapper
 from .ir_code import IRCode
-
-
-try:
-    long = long
-except NameError:
-    long = int
 
 
 class ProtocolBaseMeta(type):
@@ -83,15 +86,17 @@ class IrProtocolBase(object):
     _repeat_bursts = []
     _has_repeat_lead_out = False
 
+    _code_order = []
     _parameters = []
     encode_parameters = []
     repeat_timeout = 0
+
+    _enabled = True
 
     def __init__(self, parent=None, xml=None):
         import threading
         self.__last_code = None
         self.__code_lock = threading.RLock()
-        self._enabled = True
         self._tolerance = 20
         self._frequency_tolerance = 2
         self._saved_codes = []
@@ -114,8 +119,14 @@ class IrProtocolBase(object):
             if self._repeat_lead_out and self._repeat_lead_out[-1] > 0:
                 self.repeat_timeout = self._repeat_lead_out[-1]
 
-            elif not self._repeat_bursts and (self._repeat_lead_in or self._repeat_lead_out):
-                tt = sum(abs(item) for item in self._repeat_lead_in[:] + self._repeat_lead_out[:])
+            elif (
+                not self._repeat_bursts and
+                (self._repeat_lead_in or self._repeat_lead_out)
+            ):
+                tt = sum(
+                    abs(item) for item in
+                    self._repeat_lead_in[:] + self._repeat_lead_out[:]
+                )
                 self.repeat_timeout = tt
 
             elif self._lead_out and self._lead_out[-1] > 0:
@@ -133,21 +144,21 @@ class IrProtocolBase(object):
         self._xml = xml
 
     @property
-    def has_repeat_lead_out(self):
+    def has_repeat_lead_out(self) -> bool:
         return self._has_repeat_lead_out
 
     @property
-    def config(self):
+    def config(self) -> Optional[Config]:
         if self._parent is not None:
             return self._parent.config
 
     @property
-    def _last_code(self):
+    def _last_code(self) -> Optional[IRCode]:
         with self.__code_lock:
             return self.__last_code
 
     @_last_code.setter
-    def _last_code(self, value):
+    def _last_code(self, value: Optional[IRCode]):
         with self.__code_lock:
             self.__last_code = value
 
@@ -155,11 +166,15 @@ class IrProtocolBase(object):
         for code in self._saved_codes:
             yield code
 
-    def frequency_match(self, frequency):
-        return self._match(frequency, self.frequency, self.frequency_tolerance)
+    def frequency_match(self, frequency: int) -> bool:
+        return self._match(
+            frequency,
+            self.frequency,
+            self.frequency_tolerance
+        )
 
     @property
-    def xml(self):
+    def xml(self) -> xml_handler.XMLElement:
         if self._xml is None:
             self._xml = xml_handler.XMLElement(
                 'IRProtocol',
@@ -179,7 +194,7 @@ class IrProtocolBase(object):
         return self._xml
 
     @property
-    def function(self):
+    def function(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'function':
                 return list(range(min_val, max_val + 1))
@@ -187,7 +202,7 @@ class IrProtocolBase(object):
         return []
 
     @property
-    def device(self):
+    def device(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'device':
                 return list(range(min_val, max_val + 1))
@@ -195,7 +210,7 @@ class IrProtocolBase(object):
         return []
 
     @property
-    def sub_device(self):
+    def sub_device(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'sub_device':
                 return list(range(min_val, max_val + 1))
@@ -203,7 +218,7 @@ class IrProtocolBase(object):
         return []
 
     @property
-    def extended_function(self):
+    def extended_function(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'extended_function':
                 return list(range(min_val, max_val + 1))
@@ -211,7 +226,7 @@ class IrProtocolBase(object):
         return []
 
     @property
-    def mode(self):
+    def mode(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'mode':
                 return list(range(min_val, max_val + 1))
@@ -219,7 +234,7 @@ class IrProtocolBase(object):
         return []
 
     @property
-    def toggle(self):
+    def toggle(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'toggle':
                 return list(range(min_val, max_val + 1))
@@ -227,7 +242,7 @@ class IrProtocolBase(object):
         return []
 
     @property
-    def oem1(self):
+    def oem1(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'oem1':
                 return list(range(min_val, max_val + 1))
@@ -235,7 +250,7 @@ class IrProtocolBase(object):
         return []
 
     @property
-    def oem2(self):
+    def oem2(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'oem2':
                 return list(range(min_val, max_val + 1))
@@ -247,144 +262,80 @@ class IrProtocolBase(object):
         return cls
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         return self._enabled
 
     @enabled.setter
-    def enabled(self, value):
+    def enabled(self, value: bool):
         self._enabled = value
 
     @property
-    def tolerance(self):
+    def tolerance(self) -> float:
         return self._tolerance
 
     @tolerance.setter
-    def tolerance(self, value):
+    def tolerance(self, value: float):
         self._tolerance = value
 
     @property
-    def frequency_tolerance(self):
+    def frequency_tolerance(self) -> float:
         return self._frequency_tolerance
 
     @frequency_tolerance.setter
-    def frequency_tolerance(self, value):
+    def frequency_tolerance(self, value: float):
         self._frequency_tolerance = value
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.__class__.__name__
 
-    def reset(self, code):
+    def reset(self, code: IRCode) -> None:
         if self._last_code is not None and self._last_code == code:
             self._last_code = None
-
-    def _test_decode(self, rlc=None, params=None):
-        print(self.__class__.__name__, 'decode test.....')
-        self.tolerance = 1
-        if rlc is None:
-            return
-
-        code = None
-
-        for i in range(len(rlc)):
-            data = rlc[i]
-            param = params[i]
-            try:
-                code = self.decode(data, self.frequency)
-                print('decoded friendly', code)
-                print('decoded hexdecimal', code.hexdecimal)
-
-            except (RepeatLeadIn, RepeatLeadOut):
-                continue
-
-            else:
-                for key, value in param.items():
-                    if getattr(code, key) != value:
-                        print(code)
-                        print(i, key, value, getattr(code, key))
-                        print(data)
-
-                        code = code_wrapper.CodeWrapper(
-                            self.encoding,
-                            self._lead_in,
-                            self._lead_out,
-                            self._middle_timings,
-                            self._bursts,
-                            self.tolerance,
-                            data[:]
-                        )
-
-                        print(code._stream_pairs)
-                        raise RuntimeError
-
-        return code
-
-    def _test_encode(self, params=None):
-        if params is None:
-            return
-
-        codes = self.encode(**params)
-        found_code = None
-        for code in codes:
-            try:
-                code = self.decode(code)
-            except:
-                continue
-
-            if code is not None:
-                found_code = code
-
-        if found_code is None:
-            raise AssertionError('encode failed.')
-
-        for key, value in params.items():
-            assert getattr(found_code, key) == value
 
     def encode(self, *args, **kwargs):
         raise NotImplementedError
 
     @classmethod
-    def _reverse_bits(cls, value, num_bits):
-        res = 0
+    def _build_packet(cls, *args, **kwargs):
+        args = list(args)
 
-        for i in range(num_bits):
-            res = cls._set_bit(res, (~i + num_bits), cls._get_bit(value, i))
+        if cls._parameters:
+            parameters = cls._parameters[:]
+        else:
+            try:
+                parameters = cls._parameters2[:]
+            except AttributeError:
+                parameters = cls._parameters1[:]
 
-        return res
+        for key, start, stop in parameters:
+            if key in kwargs:
+                param = kwargs[key]
+                if not isinstance(param, IntegerWrapper):
+                    num_bits = stop + 1 - start
 
-    @classmethod
-    def _count_one_bits(cls, value):
-        count = 0
+                    param = IntegerWrapper(
+                        param,
+                        num_bits,
+                        cls._bursts,
+                        cls.encoding
+                    )
 
-        for i in range(64):
-            count += int(cls._get_bit(value, i))
+                args.append(param.timings)
 
-        return count
-
-    @classmethod
-    def _get_bits(cls, data, start_bit, stop_bit):
-        res = 0
-        for i in range(start_bit, stop_bit + 1):
-            res = cls._set_bit(res, i - start_bit, cls._get_bit(data, i))
-
-        return res
-
-    def _build_packet(self, *data):
-        data = list(data)
-
-        if self.encoding == 'msb':
-            for i, items in enumerate(data):
-                if isinstance(items, list):
-                    new_data = []
-                    for item in items:
-                        new_data.insert(0, item)
-
-                    data[i] = new_data[:]
+        # if self.encoding == 'msb':
+        #     for i, items in enumerate(data):
+        #         if isinstance(items, list):
+        #             new_data = []
+        #             for item in items:
+        #                 new_data.insert(0, item)
+        #
+        #             data[i] = new_data[:]
 
         def flatten_and_compress(lst):
             res = []
             for itm in lst:
-                if isinstance(itm, (int, long)):
+                if isinstance(itm, int):
                     if res and (res[-1] > 0 < itm or res[-1] < 0 > itm):
                         res[-1] += itm
                     else:
@@ -395,25 +346,20 @@ class IrProtocolBase(object):
 
             return res
 
-        packet = []
+        packet = list(args)
 
-        for item in data:
-            if isinstance(item, tuple):
-                packet += [item]
-            else:
-                packet += item
+        packet = cls._lead_in[:] + packet[:] + cls._lead_out[:]
 
-        packet = self._lead_in[:] + packet + self._lead_out[:]
-
-        if self._lead_out and packet[-1] > 0:
+        if cls._lead_out and packet[-1] > 0:
             packet = flatten_and_compress(packet[:-1])
             tt = sum(abs(item) for item in packet)
-            packet += [-(self._lead_out[-1] - tt)]
+            packet += [tt - cls._lead_out[-1]]
+        else:
+            packet = flatten_and_compress(packet)
 
-        packet = flatten_and_compress(packet)
         return packet[:]
 
-    def decode(self, data, frequency=0):
+    def decode(self, data: list, frequency: int = 0) -> IRCode:
         with self.__code_lock:
             if self._last_code is not None and (
                 self._repeat_lead_in or
@@ -430,12 +376,20 @@ class IrProtocolBase(object):
                         data[:]
                     )
 
-                    if self._repeat_bursts and self.__class__.decode == IrProtocolBase.decode:
+                    if (
+                        self._repeat_bursts and
+                        self.__class__.decode == IrProtocolBase.decode
+                    ):
                         params = dict(frequency=self.frequency)
                         for name, start, stop in self._parameters:
                             params[name] = code.get_value(start, stop)
 
-                        c = IRCode(self, code.original_code, list(code), params)
+                        c = IRCode(
+                            self,
+                            code.original_code,
+                            list(code),
+                            params
+                        )
                         c._code = code
 
                         if c == self._last_code:
@@ -448,7 +402,7 @@ class IrProtocolBase(object):
                     self._last_code._code = code
                     return self._last_code
 
-                except DecodeError:
+                except IRException:
                     pass
 
         code = code_wrapper.CodeWrapper(
@@ -462,9 +416,9 @@ class IrProtocolBase(object):
         )
 
         if code.num_bits > self.bit_count:
-            raise DecodeError('To many bits')
+            raise TooManyBitsError(self.bit_count, ':', code.stream_pairs)
         elif code.num_bits < self.bit_count:
-            raise DecodeError('Not enough bits')
+            raise NotEnoughBitsError(self.bit_count, ':', code.stream_pairs)
 
         params = dict(frequency=self.frequency)
         for name, start, stop in self._parameters:
@@ -485,8 +439,9 @@ class IrProtocolBase(object):
 
         return c
 
-    def _build_repeat_packet(self, repeat_count=0):
-        timings = self._repeat_lead_in[:] + self._repeat_lead_out[:]
+    @classmethod
+    def _build_repeat_packet(cls, repeat_count=0):
+        timings = cls._repeat_lead_in[:] + cls._repeat_lead_out[:]
         if timings[-1] > 0:
             tt = sum(abs(item) for item in timings[:-1])
             timings[-1] = -(timings[-1] - tt)
@@ -494,50 +449,18 @@ class IrProtocolBase(object):
         packet = [timings] * repeat_count
         return packet
 
-    def _get_timing(self, num, index):
-        if len(self._bursts) > 2:
-            val = self._get_bits(num, index, index + 1)
-        else:
-            val = self._get_bit(num, index)
-
-        return self._bursts[val]
-
-    @staticmethod
-    def _set_bit(value, bit_num, state):
-        if state:
-            return value | (1 << bit_num)
-        else:
-            return value & ~(1 << bit_num)
-
-    @staticmethod
-    def _get_bit(value, bit_num):
-        return int(value & (1 << bit_num) > 0)
-
-    @classmethod
-    def _copy_bits(cls, in_value, in_start, in_end, out_value, offset):
-        for i in range(in_start, in_end + 1):
-            out_value = cls._set_bit(
-                out_value,
-                i + offset,
-                cls._get_bit(in_value, i)
-            )
-        return out_value
-
-    @classmethod
-    def _invert_bits(cls, n, num_bits):
-        res = 0
-
-        for i in range(num_bits):
-            res = cls._set_bit(res, i, not cls._get_bit(n, i))
-
-        return res
-
     def _match(self, value, expected_timing_value, tolerance=None):
         if tolerance is None:
             tolerance = self.tolerance
 
-        high = math.floor(expected_timing_value + (expected_timing_value * (tolerance / 100.0)))
-        low = math.floor(expected_timing_value - (expected_timing_value * (tolerance / 100.0)))
+        high = math.floor(
+            expected_timing_value +
+            (expected_timing_value * (tolerance / 100.0))
+        )
+        low = math.floor(
+            expected_timing_value -
+            (expected_timing_value * (tolerance / 100.0))
+        )
 
         # do a flip flop of the high and low so the same expression can
         # be used when evaluating a raw timing
@@ -545,6 +468,3 @@ class IrProtocolBase(object):
             low, high = high, low
 
         return low <= value <= high
-
-
-

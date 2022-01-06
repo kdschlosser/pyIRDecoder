@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# ***********************************************************************************
+# *****************************************************************************
 # MIT License
 #
 # Copyright (c) 2020 Kevin G. Schlosser
@@ -9,26 +9,28 @@
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is furnished
-# to do so, subject to the following conditions:
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
-# ***********************************************************************************
+# ****************************************************************************
 
 from . import high_precision_timers
 from . import thread_worker
 from . import pronto
 from . import utils
 from . import xml_handler
+from . import integer_wrapper
 
 
 _timer_thread_worker = thread_worker.TimerThreadWorker()
@@ -66,7 +68,11 @@ class Timer(object):
             _process_thread_worker.add(self.func)
 
     def start(self, timer):
-        self._adjusted_duration = self.duration + (self.duration * 0.20) + (timer.elapsed() * 4)
+        self._adjusted_duration = (
+            self.duration +
+            (self.duration * 0.20) +
+            (timer.elapsed() * 4)
+        )
         if self.timer is None:
             self.timer = high_precision_timers.TimerUS()
 
@@ -81,19 +87,24 @@ class Timer(object):
         return self.timer.elapsed() < self.adjusted_duration
 
 
+# noinspection PyProtectedMember
 class IRCode(object):
 
-    def __init__(self, decoder, original_rlc, normalized_rlc, data, repeat_count=-1, name=None):
-        if not isinstance(original_rlc[0], list):
-            original_rlc = [original_rlc]
-
+    def __init__(
+        self,
+        decoder,
+        original_rlc,
+        normalized_rlc,
+        data,
+        repeat_count=-1,
+        name=None
+    ):
         if not isinstance(normalized_rlc[0], list):
             normalized_rlc = [normalized_rlc]
 
         self._decoder = decoder
         self._original_rlc = original_rlc
         self._normalized_rlc = normalized_rlc
-        self._data = data
         self._code = None
         self._name = name
         self._xml = None
@@ -102,10 +113,27 @@ class IRCode(object):
         self._callbacks = []
         self._repeat_count = repeat_count
 
+        self._data = {}
+
+        for key, value in data.items():
+            if (
+                key != 'frequency' and
+                not isinstance(value, integer_wrapper.IntegerWrapper)
+            ):
+                for name, start, stop in decoder._parameters:
+                    if name == key:
+                        value = integer_wrapper.IntegerWrapper(
+                            value,
+                            stop + 1 - start,
+                            decoder._bursts,
+                            decoder.encoding
+                        )
+            self._data[key] = value
+
         if decoder.repeat_timeout == 0:
-            repeat_timeout = 0
-            for rlc in original_rlc:
-                repeat_timeout += sum(abs(item) for item in rlc)
+            repeat_timeout = sum(
+                abs(item) for rlc in normalized_rlc for item in rlc
+            )
         else:
             repeat_timeout = decoder.repeat_timeout
 
@@ -140,6 +168,10 @@ class IRCode(object):
     @property
     def repeat_count(self):
         return self._repeat_count
+
+    @repeat_count.setter
+    def repeat_count(self, value):
+        self._repeat_count = value
 
     def __repeat_reset(self):
         for callback in self._callbacks[:]:
@@ -207,8 +239,12 @@ class IRCode(object):
         name = params.pop('NAME')
         params['frequency'] = params.pop('FREQUENCY')
         params.pop('DECODER')
-        original_rlc = list(int(item) for item in xml.OriginalRLC.text.split(', '))
-        normalized_rlc = list(int(item) for item in xml.NormalizedRLC.text.split(', '))
+        original_rlc = list(
+            int(item) for item in xml.OriginalRLC.text.split(', ')
+        )
+        normalized_rlc = list(
+            int(item) for item in xml.NormalizedRLC.text.split(', ')
+        )
 
         self = IRCode(decoder, original_rlc, normalized_rlc, params, name=name)
 
@@ -265,6 +301,7 @@ class IRCode(object):
             'mode',
             'n',
             'h',
+            'oem'
             'oem1',
             'oem2',
             'device',
@@ -314,50 +351,35 @@ class IRCode(object):
 
     @property
     def original_rlc_pronto(self):
-        code = []
-        for rlc in self._original_rlc:
-            code += [abs(item) for item in rlc]
-
+        code = [abs(item) for item in self._original_rlc]
         return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
     def normalized_rlc_pronto(self):
-        code = []
-        for rlc in self._normalized_rlc:
-            code += [abs(item) for item in rlc]
-
+        code = [abs(item) for rlc in self._normalized_rlc for item in rlc]
         return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
-    def original_mce_rlc(self):
-        code = []
-        for rlc in self._original_rlc:
-            code += [utils.build_mce_rlc(rlc[:])]
-
+    def original_rlc_mce(self):
+        code = utils.build_mce_rlc(self._original_rlc)
         return code
 
     @property
     def original_mce_pronto(self):
-        code = []
-        for rlc in self.original_mce_rlc:
-            code += [abs(item) for item in rlc]
-
+        code = [abs(item) for item in self.original_mce_rlc]
         return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
-    def normalized_mce_rlc(self):
-        code = []
-        for rlc in self._normalized_rlc:
-            code += [utils.build_mce_rlc(rlc[:])]
-
+    def normalized_rlc_mce(self):
+        code = [
+            item for rlc in self._normalized_rlc
+            for item in utils.build_mce_rlc(rlc[:])
+        ]
         return code
 
     @property
     def normalized_mce_pronto(self):
-        code = []
-        for rlc in self.normalized_mce_rlc:
-            code += [abs(item) for item in rlc]
-
+        code = [abs(item) for item in self.normalized_rlc_mcs]
         return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
@@ -389,6 +411,10 @@ class IRCode(object):
         return self._data.get('G', None)
 
     @property
+    def address(self):
+        return self._data.get('A', None)
+
+    @property
     def x(self):
         return self._data.get('X', None)
 
@@ -405,12 +431,43 @@ class IRCode(object):
         return self._data.get('U', None)
 
     @property
+    def oem(self):
+        return self._data.get('OEM', None)
+
+    @property
     def oem1(self):
         return self._data.get('OEM1', None)
 
     @property
     def oem2(self):
         return self._data.get('OEM2', None)
+
+    def __iadd__(self, other):
+        if not isinstance(other, IRCode):
+            raise TypeError
+
+        other._normalized_rlc += self._normalized_rlc
+        other._original_rlc += self.original_rlc
+        other._data.update(self._data)
+        return other
+
+    def __add__(self, other):
+        if not isinstance(other, IRCode):
+            raise TypeError
+
+        self._normalized_rlc += other.normalized_rlc
+        self._original_rlc += other.original_rlc
+        self._data.update(other._data)
+        return self
+
+    def __radd__(self, other):
+        if not isinstance(other, IRCode):
+            raise TypeError
+
+        self._normalized_rlc += other.normalized_rlc
+        self._original_rlc += other.original_rlc
+        self._data.update(other._data)
+        return self
 
     def __getattr__(self, item):
         if item in self.__dict__:
@@ -480,16 +537,19 @@ class IRCode(object):
                     return False
 
                 for i in range(len(other)):
-                    if not self.decoder._match(other[i], self._normalized_rlc[0][i]):
+                    if not self.decoder._match(
+                        other[i],
+                        self._normalized_rlc[0][i]
+                    ):
                         return False
 
             return True
 
         if isinstance(other, IRCode):
-            return (
-                other.decoder == self.decoder and
-                int(other) == int(self)
-            )
+            if other.decoder.__class__ != self.decoder.__class__:
+                return False
+
+            return str(other) == str(self)
 
         return False
 
@@ -502,16 +562,16 @@ class IRCode(object):
 
             if 'CODE' in self._data:
                 if 'M' in self._data:
-                    h = hex(self.mode)[2:].upper()
+                    h = hex(int(self.mode))[2:].upper()
                     h = h.zfill(len(h) + (len(h) % 2))
                     res += [h]
 
-                h = hex(self.code)[2:].upper()
+                h = hex(int(self.code))[2:].upper()
                 h = h.zfill(len(h) + (len(h) % 2)).rstrip('L')
                 res += [h]
             else:
                 for param, num_bits in self._decoder._code_order:
-                    value = self._data[param]
+                    value = int(self._data[param])
                     fill = (num_bits // 8) + 1
                     fill += fill % 2
 

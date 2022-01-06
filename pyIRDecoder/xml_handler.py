@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# ***********************************************************************************
+# *****************************************************************************
 # MIT License
 #
 # Copyright (c) 2020 Kevin G. Schlosser
@@ -9,20 +9,21 @@
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is furnished
-# to do so, subject to the following conditions:
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
-# ***********************************************************************************
+# ****************************************************************************
 
 import threading
 import os
@@ -57,12 +58,12 @@ class XMLAttributes(object):
 
             try:
                 value = eval(value)
-            except:
+            except:  # NOQA
                 pass
 
             try:
                 return value.decode('utf-8')
-            except:
+            except:  # NOQA
                 return value
 
         raise KeyError(key)
@@ -90,7 +91,7 @@ class XMLAttributes(object):
             value = value.decode('utf-8')
         except UnicodeDecodeError:
             pass
-        except:
+        except:  # NOQA
             value = str(value)
 
         self.__data[key] = value
@@ -148,7 +149,9 @@ class XMLElement(object):
         else:
             recursive = False
 
-        def iter_search(parent, res=[]):
+        def iter_search(parent, res=()):
+            if isinstance(res, tuple):
+                res = list(res)
             for child in parent.sub_elements:
                 if path in child.attrib:
                     res += [child]
@@ -175,7 +178,9 @@ class XMLElement(object):
         else:
             recursive = False
 
-        def iter_search(parent, res=[]):
+        def iter_search(parent, res=()):
+            if isinstance(res, tuple):
+                res = list(res)
             for child in parent.sub_elements:
                 if child.tag == path:
                     res += [child]
@@ -340,7 +345,8 @@ class XMLElement(object):
         ):
             if tag in self.__parent:
                 raise RuntimeError(
-                    'new tag name already exists in parent element ("{0}")'.format(tag)
+                    'new tag name already exists '
+                    'in parent element ("{0}")'.format(tag)
                 )
 
             delattr(self.__parent, old_name)
@@ -353,7 +359,7 @@ class XMLElement(object):
     def text(self):
         try:
             return self.__text.decode('utf-8')
-        except:
+        except:  # NOQA
             return self.__text
 
     @text.setter
@@ -418,7 +424,10 @@ class XMLElement(object):
     @parent.setter
     def parent(self, new_parent):
         if new_parent is None:
-            if self.__parent is not None and self in self.__parent.sub_elements:
+            if (
+                self.__parent is not None and
+                self in self.__parent.sub_elements
+            ):
                 self.__parent.remove(self)
 
             self.__parent = new_parent
@@ -484,7 +493,7 @@ class XMLElement(object):
         if isinstance(key, (int, slice)):
             try:
                 return self.__children[key]
-            except:
+            except:  # NOQA
                 raise IndexError(key)
 
         try:
@@ -586,11 +595,17 @@ class XMLElement(object):
 
         elif isinstance(value, XMLElement):
             if not key.isalpha():
-                raise ValueError('attribute name for an element needs to be camelcase.')
+                raise ValueError(
+                    'attribute name for an element needs to be camelcase.'
+                )
             if ' ' in key:
-                raise ValueError('attribute name for an element cannot contain any spaces.')
+                raise ValueError(
+                    'attribute name for an element cannot contain any spaces.'
+                )
             if not key[0].isupper():
-                raise ValueError('attribute name for an element needs to be camelcase.')
+                raise ValueError(
+                    'attribute name for an element needs to be camelcase.'
+                )
             if value.tag != key:
                 raise ValueError(
                     'Attribute name and tag of the '
@@ -598,6 +613,7 @@ class XMLElement(object):
                 )
             parent = value.__class__.parent
 
+            # noinspection PyArgumentList
             if parent.fget(value) != self:
                 self.append(value)
                 self.__dict__[key] = value
@@ -607,7 +623,8 @@ class XMLElement(object):
 
         else:
             raise ValueError(
-                'value is not an XMLElement instance ({0}: {1})'.format(repr(key), repr(value))
+                'value is not an XMLElement instance '
+                '({0}: {1})'.format(repr(key), repr(value))
             )
 
 
@@ -654,7 +671,7 @@ class XMLRootElement(XMLElement):
             if xml_data:
                 with open(file_path + '.backup', 'w') as f:
                     f.write(xml_data)
-        except:
+        except:  # NOQA
             if not os.path.exists(file_path + '.backup'):
                 raise
 

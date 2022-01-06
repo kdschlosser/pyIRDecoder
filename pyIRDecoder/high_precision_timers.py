@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# ***********************************************************************************
+# *****************************************************************************
 # MIT License
 #
 # Copyright (c) 2020 Kevin G. Schlosser
@@ -9,62 +9,79 @@
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is furnished
-# to do so, subject to the following conditions:
+# copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+# THE SOFTWARE.
 
-# ***********************************************************************************
+# ****************************************************************************
 
 import ctypes
 import sys
 import threading
 
 
-# OS-specific low-level timing functions:
-if sys.platform.startswith('win'):  # for Windows:
+if sys.platform.startswith('win'):
+    LARGE_INTEGER = ctypes.c_int64
+    BOOL = ctypes.c_bool
+
+    _kernel32 = ctypes.windll.Kernel32
+
+    # BOOL QueryPerformanceCounter(
+    #   LARGE_INTEGER *lpPerformanceCount
+    # );
+    _QueryPerformanceCounter_ = _kernel32.QueryPerformanceCounter
+    _QueryPerformanceCounter_.argtypes = [ctypes.POINTER(LARGE_INTEGER)]
+    _QueryPerformanceCounter_.restype = BOOL
+
+    # BOOL QueryPerformanceFrequency(
+    #   LARGE_INTEGER *lpFrequency
+    # );
+    _QueryPerformanceFrequency_ = _kernel32.QueryPerformanceFrequency
+    _QueryPerformanceFrequency_.argtypes = [ctypes.POINTER(LARGE_INTEGER)]
+    _QueryPerformanceFrequency_.restype = BOOL
+
+    def _get_counter():
+
+        lpPerformanceCount = LARGE_INTEGER()
+        lpFrequency = LARGE_INTEGER()
+
+        if (
+            not _QueryPerformanceCounter_(ctypes.byref(lpPerformanceCount)) or
+            not _QueryPerformanceFrequency_(ctypes.byref(lpFrequency))
+        ):
+            raise ctypes.WinError()
+
+        return lpPerformanceCount.value, lpFrequency.value
+
+
     def micros():
-        """return a timestamp in microseconds (us)"""
-        tics = ctypes.c_int64()
-        freq = ctypes.c_int64()
-
-        # get ticks on the internal ~2MHz QPC clock
-        ctypes.windll.Kernel32.QueryPerformanceCounter(ctypes.byref(tics))
-        # get the actual freq. of the internal ~2MHz QPC clock
-        ctypes.windll.Kernel32.QueryPerformanceFrequency(ctypes.byref(freq))
-
-        t_us = tics.value * 1e6 / freq.value
-        return t_us
+        """
+        microseconds (us)
+        """
+        count, freq = _get_counter()
+        return count * 1e6 / freq
 
     def millis():
-        """return a timestamp in milliseconds (ms)"""
-        tics = ctypes.c_int64()
-        freq = ctypes.c_int64()
+        """
+        milliseconds (ms)
+        """
+        count, freq = _get_counter()
+        return count * 1e3 / freq
 
-        # get ticks on the internal ~2MHz QPC clock
-        ctypes.windll.Kernel32.QueryPerformanceCounter(ctypes.byref(tics))
-        # get the actual freq. of the internal ~2MHz QPC clock
-        ctypes.windll.Kernel32.QueryPerformanceFrequency(ctypes.byref(freq))
-
-        t_ms = tics.value * 1e3 / freq.value
-        return t_ms
-
-else:  # for Linux:
+else:
     import os
 
-    # Constants:
-    # see <linux/time.h> here:
-    # https://github.com/torvalds/linux/blob/master/include/uapi/linux/time.h
     CLOCK_MONOTONIC_RAW = 4
-    # prepare ctype timespec structure of {long, long}
 
     class timespec(ctypes.Structure):
         _fields_ = [
@@ -72,66 +89,72 @@ else:  # for Linux:
             ('tv_nsec', ctypes.c_long)
         ]
 
-    # Configure Python access to the clock_gettime C library, via ctypes:
-    # Documentation:
-    # -ctypes.CDLL: https://docs.python.org/3.2/library/ctypes.html
-    # -librt.so.1 with clock_gettime:
-    # https://docs.oracle.com/cd/E36784_01/html/E36873/librt-3lib.html
-    # -Linux clock_gettime(): http://linux.die.net/man/3/clock_gettime
     librt = ctypes.CDLL('librt.so.1', use_errno=True)
     clock_gettime = librt.clock_gettime
-
-    # specify input arguments and types to the C clock_gettime() function
-    # (int clock_ID, timespec* t)
     clock_gettime.argtypes = [ctypes.c_int, ctypes.POINTER(timespec)]
 
     def monotonic_time():
-        """return a timestamp in seconds (sec)"""
-        t = timespec()
+        """
+        seconds (sec)
+        """
+        t_spec = timespec()
 
-        # (Note that clock_gettime() returns 0 for success, or -1 for failure, in
-        # which case errno is set appropriately)
-        # -see here: http://linux.die.net/man/3/clock_gettime
-        if clock_gettime(CLOCK_MONOTONIC_RAW , ctypes.pointer(t)) != 0:
-            # if clock_gettime() returns an error
+        if clock_gettime(CLOCK_MONOTONIC_RAW, ctypes.pointer(t_spec)) != 0:
             errno_ = ctypes.get_errno()
-
             raise OSError(errno_, os.strerror(errno_))
 
-        return t.tv_sec + t.tv_nsec * 1e-9  # sec
+        return t_spec.tv_sec + t_spec.tv_nsec * 1e-9
 
     def micros():
-        """return a timestamp in microseconds (us)"""
-        return monotonic_time() * 1e6  # us
+        """
+        microseconds (us)
+        """
+        return monotonic_time() * 1e6
 
     def millis():
-        """eturn a timestamp in milliseconds (ms)"""
-        return monotonic_time() * 1e3  # ms
+        """
+        milliseconds (ms)
+        """
+        return monotonic_time() * 1e3
 
 
-# Other timing functions:
-def delay(delay_ms):
-    """delay for delay_ms milliseconds (ms)"""
+def wait_milliseconds(duration):
+    """
+    millisecond blocking delay (minimum spinning wheel)
+    """
     t_start = millis()
-    while millis() - t_start < delay_ms:
-        pass  # do nothing
+
+    event = threading.Event()
+    event_wait = (float(duration - (millis() - t_start)) * 0.90)
+    if event_wait >= 10:
+        event.wait(event_wait / 1000.0)
+    while millis() - t_start < duration:
+        pass
 
     return
 
 
-def delay_microseconds(delay_us):
-    """delay for delay_us microseconds (us)"""
+def wait_microseconds(duration):
+    """
+    microseconds blocking delay (minimum spinning wheel)
+    """
     t_start = micros()
-    while micros() - t_start < delay_us:
-        pass  # do nothing
+    event = threading.Event()
+    event_wait = float(duration - (micros() - t_start)) * 0.80
+
+    if event_wait >= 10000:
+        event.wait(event_wait / 1000000.0)
+
+    while micros() - t_start < duration:
+        pass
 
     return
 
 
-# Classes
 class TimerUS(object):
     def __init__(self):
         self.start = 0
+        self.event = threading.Event()
         self.reset()
 
     def reset(self):
@@ -141,10 +164,47 @@ class TimerUS(object):
         now = micros()
         return now - self.start
 
+    def set(self):
+        self.event.set()
+
+    def is_set(self):
+        return self.event.is_set()
+
+    def clear(self):
+        self.event.clear()
+
+    def wait(self, duration):
+        """
+        blocking delay (minimum spinning wheels)
+        """
+
+        # I wanted to create a blocking wait/delay that didn't cause a
+        # "spinning wheel" (high cpu use). Using an event does this but the
+        # problem with it is it's not consistant. It will release the wait
+        # before the timeout period or after the timeout period. If it was one
+        # or the other I could compensate for it somewhat. So what I did is I
+        # am using the threading.Event.wait for a portion of the duration.
+        # leaving about a 2.5% buffer. I found that threading.Event.wait
+        # releases < +- 2.5%. At that point I then do a spinning wheel. When
+        # wanting for wait for microseconds or milliseconds this works really
+        # well and manages to keep the load on the CPU low. and when it
+        # releases it is typiclly around 3-4 microseconds past the wanted time.
+        # Which isn't bad at all. Much better then the 4-5 milliseconds from
+        # threading.Event.wait
+        event = threading.Event()
+        event_wait = float(duration - (micros() - self.start)) * 0.80
+
+        if event_wait >= 10000:
+            event.wait(event_wait / 1000000.0)
+
+        while not self.is_set() and micros() - self.start < duration:
+            pass
+
 
 class TimerMS(object):
     def __init__(self):
         self.start = 0
+        self.event = threading.Event()
         self.reset()
 
     def reset(self):
@@ -154,34 +214,28 @@ class TimerMS(object):
         now = millis()
         return now - self.start
 
+    def set(self):
+        self.event.set()
 
-class BusyTimer(object):
+    def is_set(self):
+        return self.event.is_set()
 
-    def __init__(self, timer, threshold, func):
-        self.timer = timer
-        self.threshold = threshold
-        self.func = func
-        self._thread = None
-        self._event = threading.Event()
+    def clear(self):
+        self.event.clear()
 
-    def start(self):
-        self._event.set()
-        self._thread = threading.Thread(target=self._run)
-        self._thread.daemon = True
-        self._thread.start()
+    def wait(self, duration):
+        """
+        blocking delay (minimum spinning wheels)
+        """
+        event_wait = (float(duration - (millis() - self.start)) * 0.90)
+        if event_wait >= 10:
+            self.event.wait(event_wait / 1000.0)
 
-    def _run(self):
-        self._event.clear()
-        self.timer.reset()
-        while (
-            self.timer.elapsed() < self.threshold() and
-            not self._event.is_set()
-        ):
+        while not self.is_set() and millis() - self.start < duration:
             pass
 
-        if not self._event.is_set():
-            self.func()
 
-    @property
-    def is_running(self):
-        return self.timer.elapsed() > self.threshold
+if __name__ == '__main__':
+    t = TimerMS()
+    t.wait(50)
+    print(t.elapsed())
