@@ -33,8 +33,7 @@ import threading
 from pyIRDecoder import high_precision_timers
 
 
-ir_decoder = pyIRDecoder.IRDecoder()
-ir_encoder = pyIRDecoder.IREncoder()
+from pyIRDecoder import protocols
 
 decoding_times = []
 
@@ -123,7 +122,7 @@ class TestBase(object):
                     print('REPEAT CODE TIMER EXPIRED', code)
 
                 start.reset()
-                c = ir_decoder.decode(c, rlc.frequency)
+                c = protocols.decode(c, rlc.frequency)
 
                 if c is None:
                     continue
@@ -136,6 +135,7 @@ class TestBase(object):
                 code = c
                 code.bind_released_callback(key_released_callback)
                 wait_event.wait(code.repeat_timer.duration / 1000000.0)
+                print('setting timer duration:', code.repeat_timer.duration/1000000.0, 's')
 
             print()
             if code is None:
@@ -146,7 +146,7 @@ class TestBase(object):
                 failures.append(cls.__name__)
                 raise RuntimeError
 
-            if code.decoder == ir_decoder.Universal:
+            if code.decoder == protocols.Universal:
                 universals.append(cls.__name__)
                 raise RuntimeError
 
@@ -158,7 +158,7 @@ class TestBase(object):
             print('key released')
             print()
             print('decoded friendly:', code)
-            print('decoded hexdecimal:', code.hexdecimal)
+            print('decoded hexadecimal:', code.hexadecimal)
             print('code length:', code.repeat_timer.duration / 1000.0, 'ms')
 
             if not wait_event.is_set():
@@ -190,804 +190,803 @@ class TestBase(object):
 
 
 class AdNotham(TestBase):
-    decoder = ir_decoder.AdNotham
-    encoder = ir_encoder.AdNotham
+    decoder = protocols.AdNotham
+    encoder = protocols.AdNotham
 
 
 class Aiwa(TestBase):
-    decoder = ir_decoder.Aiwa
-    encoder = ir_encoder.Aiwa
+    decoder = protocols.Aiwa
+    encoder = protocols.Aiwa
 
 
 class Akai(TestBase):
-    decoder = ir_decoder.Akai
-    encoder = ir_encoder.Akai
+    decoder = protocols.Akai
+    encoder = protocols.Akai
 
 
 class Akord(TestBase):
-    decoder = ir_decoder.Akord
-    encoder = ir_encoder.Akord
+    decoder = protocols.Akord
+    encoder = protocols.Akord
 
 
 class Amino(TestBase):
-    decoder = ir_decoder.Amino
-    encoder = ir_encoder.Amino
+    decoder = protocols.Amino
+    encoder = protocols.Amino
 
 
 class Amino56(TestBase):
-    decoder = ir_decoder.Amino56
-    encoder = ir_encoder.Amino56
+    decoder = protocols.Amino56
+    encoder = protocols.Amino56
 
 
 class Anthem(TestBase):
-    decoder = ir_decoder.Anthem
-    encoder = ir_encoder.Anthem
+    decoder = protocols.Anthem
+    encoder = protocols.Anthem
 
 
 class Apple(TestBase):
-    decoder = ir_decoder.Apple
-    encoder = ir_encoder.Apple
+    decoder = protocols.Apple
+    encoder = protocols.Apple
 
 
 class Archer(TestBase):
-    decoder = ir_decoder.Archer
-    encoder = ir_encoder.Archer
+    decoder = protocols.Archer
+    encoder = protocols.Archer
 
 
 class Arctech(TestBase):
-    decoder = ir_decoder.Arctech
-    encoder = ir_encoder.Arctech
+    decoder = protocols.Arctech
+    encoder = protocols.Arctech
 
 
 class Arctech38(TestBase):
-    decoder = ir_decoder.Arctech38
-    encoder = ir_encoder.Arctech38
+    decoder = protocols.Arctech38
+    encoder = protocols.Arctech38
 
 
 class Audiovox(TestBase):
-    decoder = ir_decoder.Audiovox
-    encoder = ir_encoder.Audiovox
+    decoder = protocols.Audiovox
+    encoder = protocols.Audiovox
 
 
 class Barco(TestBase):
-    decoder = ir_decoder.Barco
-    encoder = ir_encoder.Barco
+    decoder = protocols.Barco
+    encoder = protocols.Barco
 
 
 class Blaupunkt(TestBase):
-    decoder = ir_decoder.Blaupunkt
-    encoder = ir_encoder.Blaupunkt
+    decoder = protocols.Blaupunkt
+    encoder = protocols.Blaupunkt
 
 
 class Bose(TestBase):
-    decoder = ir_decoder.Bose
-    encoder = ir_encoder.Bose
+    decoder = protocols.Bose
+    encoder = protocols.Bose
 
 
 class Bryston(TestBase):
-    decoder = ir_decoder.Bryston
-    encoder = ir_encoder.Bryston
+    decoder = protocols.Bryston
+    encoder = protocols.Bryston
 
 
 class CanalSat(TestBase):
-    decoder = ir_decoder.CanalSat
-    encoder = ir_encoder.CanalSat
+    decoder = protocols.CanalSat
+    encoder = protocols.CanalSat
 
 
 class CanalSatLD(TestBase):
-    decoder = ir_decoder.CanalSatLD
-    encoder = ir_encoder.CanalSatLD
+    decoder = protocols.CanalSatLD
+    encoder = protocols.CanalSatLD
 
 
 class Denon(TestBase):
-    decoder = ir_decoder.Denon
-    encoder = ir_encoder.Denon
+    decoder = protocols.Denon
+    encoder = protocols.Denon
 
 
 class DenonK(TestBase):
-    decoder = ir_decoder.DenonK
-    encoder = ir_encoder.DenonK
+    decoder = protocols.DenonK
+    encoder = protocols.DenonK
 
 
 class Dgtec(TestBase):
-    decoder = ir_decoder.Dgtec
-    encoder = ir_encoder.Dgtec
+    decoder = protocols.Dgtec
+    encoder = protocols.Dgtec
 
 
 class Digivision(TestBase):
-    decoder = ir_decoder.Digivision
-    encoder = ir_encoder.Digivision
+    decoder = protocols.Digivision
+    encoder = protocols.Digivision
 
 
 class DirecTV(TestBase):
-    decoder = ir_decoder.DirecTV
-    encoder = ir_encoder.DirecTV
+    decoder = protocols.DirecTV
+    encoder = protocols.DirecTV
 
 
 class DirecTV0(TestBase):
-    decoder = ir_decoder.DirecTV0
-    encoder = ir_encoder.DirecTV0
+    decoder = protocols.DirecTV0
+    encoder = protocols.DirecTV0
 
 
 class DirecTV1(TestBase):
-    decoder = ir_decoder.DirecTV1
-    encoder = ir_encoder.DirecTV1
+    decoder = protocols.DirecTV1
+    encoder = protocols.DirecTV1
 
 
 class DirecTV2(TestBase):
-    decoder = ir_decoder.DirecTV2
-    encoder = ir_encoder.DirecTV2
+    decoder = protocols.DirecTV2
+    encoder = protocols.DirecTV2
 
 
 class DirecTV3(TestBase):
-    decoder = ir_decoder.DirecTV3
-    encoder = ir_encoder.DirecTV3
+    decoder = protocols.DirecTV3
+    encoder = protocols.DirecTV3
 
 
 class DirecTV4(TestBase):
-    decoder = ir_decoder.DirecTV4
-    encoder = ir_encoder.DirecTV4
+    decoder = protocols.DirecTV4
+    encoder = protocols.DirecTV4
 
 
 class DirecTV5(TestBase):
-    decoder = ir_decoder.DirecTV5
-    encoder = ir_encoder.DirecTV5
+    decoder = protocols.DirecTV5
+    encoder = protocols.DirecTV5
 
 
 class DishNetwork(TestBase):
-    decoder = ir_decoder.DishNetwork
-    encoder = ir_encoder.DishNetwork
+    decoder = protocols.DishNetwork
+    encoder = protocols.DishNetwork
 
 
 class DishPlayer(TestBase):
-    decoder = ir_decoder.DishPlayer
-    encoder = ir_encoder.DishPlayer
+    decoder = protocols.DishPlayer
+    encoder = protocols.DishPlayer
 
 
 class Dyson(TestBase):
-    decoder = ir_decoder.Dyson
-    encoder = ir_encoder.Dyson
+    decoder = protocols.Dyson
+    encoder = protocols.Dyson
 
 
 class Dyson2(TestBase):
-    decoder = ir_decoder.Dyson2
-    encoder = ir_encoder.Dyson2
+    decoder = protocols.Dyson2
+    encoder = protocols.Dyson2
 
 
 class Elan(TestBase):
-    decoder = ir_decoder.Elan
-    encoder = ir_encoder.Elan
+    decoder = protocols.Elan
+    encoder = protocols.Elan
 
 
 class Elunevision(TestBase):
-    decoder = ir_decoder.Elunevision
-    encoder = ir_encoder.Elunevision
+    decoder = protocols.Elunevision
+    encoder = protocols.Elunevision
 
 
 class Emerson(TestBase):
-    decoder = ir_decoder.Emerson
-    encoder = ir_encoder.Emerson
+    decoder = protocols.Emerson
+    encoder = protocols.Emerson
 
 
 class Entone(TestBase):
-    decoder = ir_decoder.Entone
-    encoder = ir_encoder.Entone
+    decoder = protocols.Entone
+    encoder = protocols.Entone
 
 
 class F12(TestBase):
-    decoder = ir_decoder.F12
-    encoder = ir_encoder.F12
+    decoder = protocols.F12
+    encoder = protocols.F12
 
 
 class F120(TestBase):
-    decoder = ir_decoder.F120
-    encoder = ir_encoder.F120
+    decoder = protocols.F120
+    encoder = protocols.F120
 
 
 class F121(TestBase):
-    decoder = ir_decoder.F121
-    encoder = ir_encoder.F121
+    decoder = protocols.F121
+    encoder = protocols.F121
 
 
 class F32(TestBase):
-    decoder = ir_decoder.F32
-    encoder = ir_encoder.F32
+    decoder = protocols.F32
+    encoder = protocols.F32
 
 
 class Fujitsu(TestBase):
-    decoder = ir_decoder.Fujitsu
-    encoder = ir_encoder.Fujitsu
+    decoder = protocols.Fujitsu
+    encoder = protocols.Fujitsu
 
 
 class Fujitsu128(TestBase):
-    decoder = ir_decoder.Fujitsu128
-    encoder = ir_encoder.Fujitsu128
+    decoder = protocols.Fujitsu128
+    encoder = protocols.Fujitsu128
 
 
 class Fujitsu56(TestBase):
-    decoder = ir_decoder.Fujitsu56
-    encoder = ir_encoder.Fujitsu56
+    decoder = protocols.Fujitsu56
+    encoder = protocols.Fujitsu56
 
 
 class GI4DTV(TestBase):
-    decoder = ir_decoder.GI4DTV
-    encoder = ir_encoder.GI4DTV
+    decoder = protocols.GI4DTV
+    encoder = protocols.GI4DTV
 
 
 class GICable(TestBase):
-    decoder = ir_decoder.GICable
-    encoder = ir_encoder.GICable
+    decoder = protocols.GICable
+    encoder = protocols.GICable
 
 
 class GIRG(TestBase):
-    decoder = ir_decoder.GIRG
-    encoder = ir_encoder.GIRG
+    decoder = protocols.GIRG
+    encoder = protocols.GIRG
 
 
 class Grundig16(TestBase):
-    decoder = ir_decoder.Grundig16
-    encoder = ir_encoder.Grundig16
+    decoder = protocols.Grundig16
+    encoder = protocols.Grundig16
 
 
 class Grundig1630(TestBase):
-    decoder = ir_decoder.Grundig1630
-    encoder = ir_encoder.Grundig1630
+    decoder = protocols.Grundig1630
+    encoder = protocols.Grundig1630
 
 
 class GuangZhou(TestBase):
-    decoder = ir_decoder.GuangZhou
-    encoder = ir_encoder.GuangZhou
+    decoder = protocols.GuangZhou
+    encoder = protocols.GuangZhou
 
 
 class GwtS(TestBase):
-    decoder = ir_decoder.GwtS
-    encoder = ir_encoder.GwtS
+    decoder = protocols.GwtS
+    encoder = protocols.GwtS
 
 
 class GXB(TestBase):
-    decoder = ir_decoder.GXB
-    encoder = ir_encoder.GXB
+    decoder = protocols.GXB
+    encoder = protocols.GXB
 
 
 class Humax4Phase(TestBase):
-    decoder = ir_decoder.Humax4Phase
-    encoder = ir_encoder.Humax4Phase
+    decoder = protocols.Humax4Phase
+    encoder = protocols.Humax4Phase
 
 
 class InterVideoRC201(TestBase):
-    decoder = ir_decoder.InterVideoRC201
-    encoder = ir_encoder.InterVideoRC201
+    decoder = protocols.InterVideoRC201
+    encoder = protocols.InterVideoRC201
 
 
 class IODATAn(TestBase):
-    decoder = ir_decoder.IODATAn
-    encoder = ir_encoder.IODATAn
+    decoder = protocols.IODATAn
+    encoder = protocols.IODATAn
 
 
 class Jerrold(TestBase):
-    decoder = ir_decoder.Jerrold
-    encoder = ir_encoder.Jerrold
+    decoder = protocols.Jerrold
+    encoder = protocols.Jerrold
 
 
 class JVC(TestBase):
-    decoder = ir_decoder.JVC
-    encoder = ir_encoder.JVC
+    decoder = protocols.JVC
+    encoder = protocols.JVC
 
 
 class JVC48(TestBase):
-    decoder = ir_decoder.JVC48
-    encoder = ir_encoder.JVC48
+    decoder = protocols.JVC48
+    encoder = protocols.JVC48
 
 
 class JVC56(TestBase):
-    decoder = ir_decoder.JVC56
-    encoder = ir_encoder.JVC56
+    decoder = protocols.JVC56
+    encoder = protocols.JVC56
 
 
 class Kaseikyo(TestBase):
-    decoder = ir_decoder.Kaseikyo
-    encoder = ir_encoder.Kaseikyo
+    decoder = protocols.Kaseikyo
+    encoder = protocols.Kaseikyo
 
 
 class Kaseikyo56(TestBase):
-    decoder = ir_decoder.Kaseikyo56
-    encoder = ir_encoder.Kaseikyo56
+    decoder = protocols.Kaseikyo56
+    encoder = protocols.Kaseikyo56
 
 
 class Kathrein(TestBase):
-    decoder = ir_decoder.Kathrein
-    encoder = ir_encoder.Kathrein
+    decoder = protocols.Kathrein
+    encoder = protocols.Kathrein
 
 
 class Konka(TestBase):
-    decoder = ir_decoder.Konka
-    encoder = ir_encoder.Konka
+    decoder = protocols.Konka
+    encoder = protocols.Konka
 
 
 class Logitech(TestBase):
-    decoder = ir_decoder.Logitech
-    encoder = ir_encoder.Logitech
+    decoder = protocols.Logitech
+    encoder = protocols.Logitech
 
 
 class Lumagen(TestBase):
-    decoder = ir_decoder.Lumagen
-    encoder = ir_encoder.Lumagen
+    decoder = protocols.Lumagen
+    encoder = protocols.Lumagen
 
 
 class Lutron(TestBase):
-    decoder = ir_decoder.Lutron
-    encoder = ir_encoder.Lutron
+    decoder = protocols.Lutron
+    encoder = protocols.Lutron
 
 
 class Matsui(TestBase):
-    decoder = ir_decoder.Matsui
-    encoder = ir_encoder.Matsui
+    decoder = protocols.Matsui
+    encoder = protocols.Matsui
 
 
 class MCE(TestBase):
-    decoder = ir_decoder.MCE
-    encoder = ir_encoder.MCE
+    decoder = protocols.MCE
+    encoder = protocols.MCE
 
 
 class MCIR2kbd(TestBase):
-    decoder = ir_decoder.MCIR2kbd
-    encoder = ir_encoder.MCIR2kbd
+    decoder = protocols.MCIR2kbd
+    encoder = protocols.MCIR2kbd
 
 
 class MCIR2mouse(TestBase):
-    decoder = ir_decoder.MCIR2mouse
-    encoder = ir_encoder.MCIR2mouse
+    decoder = protocols.MCIR2mouse
+    encoder = protocols.MCIR2mouse
 
 
 class Metz19(TestBase):
-    decoder = ir_decoder.Metz19
-    encoder = ir_encoder.Metz19
+    decoder = protocols.Metz19
+    encoder = protocols.Metz19
 
 
 class Mitsubishi(TestBase):
-    decoder = ir_decoder.Mitsubishi
-    encoder = ir_encoder.Mitsubishi
+    decoder = protocols.Mitsubishi
+    encoder = protocols.Mitsubishi
 
 
 class MitsubishiK(TestBase):
-    decoder = ir_decoder.MitsubishiK
-    encoder = ir_encoder.MitsubishiK
+    decoder = protocols.MitsubishiK
+    encoder = protocols.MitsubishiK
 
 
 class Motorola(TestBase):
-    decoder = ir_decoder.Motorola
-    encoder = ir_encoder.Motorola
+    decoder = protocols.Motorola
+    encoder = protocols.Motorola
 
 
 class NEC(TestBase):
-    decoder = ir_decoder.NEC
-    encoder = ir_encoder.NEC
+    decoder = protocols.NEC
+    encoder = protocols.NEC
 
 
 class NEC48(TestBase):
-    decoder = ir_decoder.NEC48
-    encoder = ir_encoder.NEC48
+    decoder = protocols.NEC48
+    encoder = protocols.NEC48
 
 
 class NECf16(TestBase):
-    decoder = ir_decoder.NECf16
-    encoder = ir_encoder.NECf16
+    decoder = protocols.NECf16
+    encoder = protocols.NECf16
 
 
 class NECrnc(TestBase):
-    decoder = ir_decoder.NECrnc
-    encoder = ir_encoder.NECrnc
+    decoder = protocols.NECrnc
+    encoder = protocols.NECrnc
 
 
 class NECx(TestBase):
-    decoder = ir_decoder.NECx
-    encoder = ir_encoder.NECx
+    decoder = protocols.NECx
+    encoder = protocols.NECx
 
 
 class NECxf16(TestBase):
-    decoder = ir_decoder.NECxf16
-    encoder = ir_encoder.NECxf16
+    decoder = protocols.NECxf16
+    encoder = protocols.NECxf16
 
 
 class Nokia(TestBase):
-    decoder = ir_decoder.Nokia
-    encoder = ir_encoder.Nokia
+    decoder = protocols.Nokia
+    encoder = protocols.Nokia
 
 
 class Nokia12(TestBase):
-    decoder = ir_decoder.Nokia12
-    encoder = ir_encoder.Nokia12
+    decoder = protocols.Nokia12
+    encoder = protocols.Nokia12
 
 
 class Nokia32(TestBase):
-    decoder = ir_decoder.Nokia32
-    encoder = ir_encoder.Nokia32
+    decoder = protocols.Nokia32
+    encoder = protocols.Nokia32
 
 
 class NovaPace(TestBase):
-    decoder = ir_decoder.NovaPace
-    encoder = ir_encoder.NovaPace
+    decoder = protocols.NovaPace
+    encoder = protocols.NovaPace
 
 
 class NRC16(TestBase):
-    decoder = ir_decoder.NRC16
-    encoder = ir_encoder.NRC16
+    decoder = protocols.NRC16
+    encoder = protocols.NRC16
 
 
 class NRC1632(TestBase):
-    decoder = ir_decoder.NRC1632
-    encoder = ir_encoder.NRC1632
+    decoder = protocols.NRC1632
+    encoder = protocols.NRC1632
 
 
 class NRC17(TestBase):
-    decoder = ir_decoder.NRC17
-    encoder = ir_encoder.NRC17
+    decoder = protocols.NRC17
+    encoder = protocols.NRC17
 
 
 class Ortek(TestBase):
-    decoder = ir_decoder.Ortek
-    encoder = ir_encoder.Ortek
+    decoder = protocols.Ortek
+    encoder = protocols.Ortek
 
 
 class OrtekMCE(TestBase):
-    decoder = ir_decoder.OrtekMCE
-    encoder = ir_encoder.OrtekMCE
+    decoder = protocols.OrtekMCE
+    encoder = protocols.OrtekMCE
 
 
 class PaceMSS(TestBase):
-    decoder = ir_decoder.PaceMSS
-    encoder = ir_encoder.PaceMSS
+    decoder = protocols.PaceMSS
+    encoder = protocols.PaceMSS
 
 
 class Panasonic(TestBase):
-    decoder = ir_decoder.Panasonic
-    encoder = ir_encoder.Panasonic
+    decoder = protocols.Panasonic
+    encoder = protocols.Panasonic
 
 
 class Panasonic2(TestBase):
-    decoder = ir_decoder.Panasonic2
-    encoder = ir_encoder.Panasonic2
+    decoder = protocols.Panasonic2
+    encoder = protocols.Panasonic2
 
 
 class PanasonicOld(TestBase):
-    decoder = ir_decoder.PanasonicOld
-    encoder = ir_encoder.PanasonicOld
+    decoder = protocols.PanasonicOld
+    encoder = protocols.PanasonicOld
 
 
 class PCTV(TestBase):
-    decoder = ir_decoder.PCTV
-    encoder = ir_encoder.PCTV
+    decoder = protocols.PCTV
+    encoder = protocols.PCTV
 
 
 class PID0001(TestBase):
-    decoder = ir_decoder.PID0001
-    encoder = ir_encoder.PID0001
+    decoder = protocols.PID0001
+    encoder = protocols.PID0001
 
 
 class PID0003(TestBase):
-    decoder = ir_decoder.PID0003
-    encoder = ir_encoder.PID0003
+    decoder = protocols.PID0003
+    encoder = protocols.PID0003
 
 
 class PID0004(TestBase):
-    decoder = ir_decoder.PID0004
-    encoder = ir_encoder.PID0004
+    decoder = protocols.PID0004
+    encoder = protocols.PID0004
 
 
 class PID0083(TestBase):
-    decoder = ir_decoder.PID0083
-    encoder = ir_encoder.PID0083
+    decoder = protocols.PID0083
+    encoder = protocols.PID0083
 
 
 class Pioneer(TestBase):
-    decoder = ir_decoder.Pioneer
-    encoder = ir_encoder.Pioneer
+    decoder = protocols.Pioneer
+    encoder = protocols.Pioneer
 
 
 class Proton(TestBase):
-    decoder = ir_decoder.Proton
-    encoder = ir_encoder.Proton
+    decoder = protocols.Proton
+    encoder = protocols.Proton
 
 
 class Proton40(TestBase):
-    decoder = ir_decoder.Proton40
-    encoder = ir_encoder.Proton40
+    decoder = protocols.Proton40
+    encoder = protocols.Proton40
 
 
 class RC5(TestBase):
-    decoder = ir_decoder.RC5
-    encoder = ir_encoder.RC5
+    decoder = protocols.RC5
+    encoder = protocols.RC5
 
 
 class RC57F(TestBase):
-    decoder = ir_decoder.RC57F
-    encoder = ir_encoder.RC57F
+    decoder = protocols.RC57F
+    encoder = protocols.RC57F
 
 
 class RC57F57(TestBase):
-    decoder = ir_decoder.RC57F57
-    encoder = ir_encoder.RC57F57
+    decoder = protocols.RC57F57
+    encoder = protocols.RC57F57
 
 
 class RC5x(TestBase):
-    decoder = ir_decoder.RC5x
-    encoder = ir_encoder.RC5x
+    decoder = protocols.RC5x
+    encoder = protocols.RC5x
 
 
 class RC6(TestBase):
-    decoder = ir_decoder.RC6
-    encoder = ir_encoder.RC6
+    decoder = protocols.RC6
+    encoder = protocols.RC6
 
 
 class RC6620(TestBase):
-    decoder = ir_decoder.RC6620
-    encoder = ir_encoder.RC6620
+    decoder = protocols.RC6620
+    encoder = protocols.RC6620
 
 
 class RC6624(TestBase):
-    decoder = ir_decoder.RC6624
-    encoder = ir_encoder.RC6624
+    decoder = protocols.RC6624
+    encoder = protocols.RC6624
 
 
 class RC6632(TestBase):
-    decoder = ir_decoder.RC6632
-    encoder = ir_encoder.RC6632
+    decoder = protocols.RC6632
+    encoder = protocols.RC6632
 
 
 class RC6M16(TestBase):
-    decoder = ir_decoder.RC6M16
-    encoder = ir_encoder.RC6M16
+    decoder = protocols.RC6M16
+    encoder = protocols.RC6M16
 
 
 class RC6M28(TestBase):
-    decoder = ir_decoder.RC6M28
-    encoder = ir_encoder.RC6M28
+    decoder = protocols.RC6M28
+    encoder = protocols.RC6M28
 
 
 class RC6M32(TestBase):
-    decoder = ir_decoder.RC6M32
-    encoder = ir_encoder.RC6M32
+    decoder = protocols.RC6M32
+    encoder = protocols.RC6M32
 
 
 class RC6M56(TestBase):
-    decoder = ir_decoder.RC6M56
-    encoder = ir_encoder.RC6M56
+    decoder = protocols.RC6M56
+    encoder = protocols.RC6M56
 
 
 class RC6MBIT(TestBase):
-    decoder = ir_decoder.RC6MBIT
-    encoder = ir_encoder.RC6MBIT
+    decoder = protocols.RC6MBIT
+    encoder = protocols.RC6MBIT
 
 
 class RCA(TestBase):
-    decoder = ir_decoder.RCA
-    encoder = ir_encoder.RCA
+    decoder = protocols.RCA
+    encoder = protocols.RCA
 
 
 class RCA38(TestBase):
-    decoder = ir_decoder.RCA38
-    encoder = ir_encoder.RCA38
+    decoder = protocols.RCA38
+    encoder = protocols.RCA38
 
 
 class RCA38Old(TestBase):
-    decoder = ir_decoder.RCA38Old
-    encoder = ir_encoder.RCA38Old
+    decoder = protocols.RCA38Old
+    encoder = protocols.RCA38Old
 
 
 class RCAOld(TestBase):
-    decoder = ir_decoder.RCAOld
-    encoder = ir_encoder.RCAOld
+    decoder = protocols.RCAOld
+    encoder = protocols.RCAOld
 
 
-class RCMM(TestBase):
-    decoder = ir_decoder.RCMM
-    encoder = ir_encoder.RCMM
+#class RCMM(TestBase):
+    #decoder = protocols.RCMM
+    #encoder = protocols.RCMM
 
 
 class RECS800045(TestBase):
-    decoder = ir_decoder.RECS800045
-    encoder = ir_encoder.RECS800045
+    decoder = protocols.RECS800045
+    encoder = protocols.RECS800045
 
 
 class RECS800068(TestBase):
-    decoder = ir_decoder.RECS800068
-    encoder = ir_encoder.RECS800068
+    decoder = protocols.RECS800068
+    encoder = protocols.RECS800068
 
 
 class RECS800090(TestBase):
-    decoder = ir_decoder.RECS800090
-    encoder = ir_encoder.RECS800090
+    decoder = protocols.RECS800090
+    encoder = protocols.RECS800090
 
 
 class Revox(TestBase):
-    decoder = ir_decoder.Revox
-    encoder = ir_encoder.Revox
+    decoder = protocols.Revox
+    encoder = protocols.Revox
 
 
 class Roku(TestBase):
-    decoder = ir_decoder.Roku
-    encoder = ir_encoder.Roku
+    decoder = protocols.Roku
+    encoder = protocols.Roku
 
 
 class Rs200(TestBase):
-    decoder = ir_decoder.Rs200
-    encoder = ir_encoder.Rs200
+    decoder = protocols.Rs200
+    encoder = protocols.Rs200
 
 
 class RTIRelay(TestBase):
-    decoder = ir_decoder.RTIRelay
-    encoder = ir_encoder.RTIRelay
+    decoder = protocols.RTIRelay
+    encoder = protocols.RTIRelay
 
 
 class Sampo(TestBase):
-    decoder = ir_decoder.Sampo
-    encoder = ir_encoder.Sampo
+    decoder = protocols.Sampo
+    encoder = protocols.Sampo
 
 
 class Samsung20(TestBase):
-    decoder = ir_decoder.Samsung20
-    encoder = ir_encoder.Samsung20
+    decoder = protocols.Samsung20
+    encoder = protocols.Samsung20
 
 
 class Samsung36(TestBase):
-    decoder = ir_decoder.Samsung36
-    encoder = ir_encoder.Samsung36
+    decoder = protocols.Samsung36
+    encoder = protocols.Samsung36
 
 
 class SamsungSMTG(TestBase):
-    decoder = ir_decoder.SamsungSMTG
-    encoder = ir_encoder.SamsungSMTG
+    decoder = protocols.SamsungSMTG
+    encoder = protocols.SamsungSMTG
 
 
 class ScAtl6(TestBase):
-    decoder = ir_decoder.ScAtl6
-    encoder = ir_encoder.ScAtl6
+    decoder = protocols.ScAtl6
+    encoder = protocols.ScAtl6
 
 
 class Sharp(TestBase):
-    decoder = ir_decoder.Sharp
-    encoder = ir_encoder.Sharp
+    decoder = protocols.Sharp
+    encoder = protocols.Sharp
 
 
 class Sharp1(TestBase):
-    decoder = ir_decoder.Sharp1
-    encoder = ir_encoder.Sharp1
+    decoder = protocols.Sharp1
+    encoder = protocols.Sharp1
 
 
 class Sharp2(TestBase):
-    decoder = ir_decoder.Sharp2
-    encoder = ir_encoder.Sharp2
+    decoder = protocols.Sharp2
+    encoder = protocols.Sharp2
 
 
 class SharpDVD(TestBase):
-    decoder = ir_decoder.SharpDVD
-    encoder = ir_encoder.SharpDVD
+    decoder = protocols.SharpDVD
+    encoder = protocols.SharpDVD
 
 
 class SIM2(TestBase):
-    decoder = ir_decoder.SIM2
-    encoder = ir_encoder.SIM2
+    decoder = protocols.SIM2
+    encoder = protocols.SIM2
 
 
 class Sky(TestBase):
-    decoder = ir_decoder.Sky
-    encoder = ir_encoder.Sky
+    decoder = protocols.Sky
+    encoder = protocols.Sky
 
 
 class SkyHD(TestBase):
-    decoder = ir_decoder.SkyHD
-    encoder = ir_encoder.SkyHD
+    decoder = protocols.SkyHD
+    encoder = protocols.SkyHD
 
 
 class SkyPlus(TestBase):
-    decoder = ir_decoder.SkyPlus
-    encoder = ir_encoder.SkyPlus
+    decoder = protocols.SkyPlus
+    encoder = protocols.SkyPlus
 
 
 class Somfy(TestBase):
-    decoder = ir_decoder.Somfy
-    encoder = ir_encoder.Somfy
+    decoder = protocols.Somfy
+    encoder = protocols.Somfy
 
 
 class Sony12(TestBase):
-    decoder = ir_decoder.Sony12
-    encoder = ir_encoder.Sony12
+    decoder = protocols.Sony12
+    encoder = protocols.Sony12
 
 
 class Sony15(TestBase):
-    decoder = ir_decoder.Sony15
-    encoder = ir_encoder.Sony15
+    decoder = protocols.Sony15
+    encoder = protocols.Sony15
 
 
 class Sony20(TestBase):
-    decoder = ir_decoder.Sony20
-    encoder = ir_encoder.Sony20
+    decoder = protocols.Sony20
+    encoder = protocols.Sony20
 
 
 class Sony8(TestBase):
-    decoder = ir_decoder.Sony8
-    encoder = ir_encoder.Sony8
+    decoder = protocols.Sony8
+    encoder = protocols.Sony8
 
 
 class StreamZap(TestBase):
-    decoder = ir_decoder.StreamZap
-    encoder = ir_encoder.StreamZap
+    decoder = protocols.StreamZap
+    encoder = protocols.StreamZap
 
 
 class StreamZap57(TestBase):
-    decoder = ir_decoder.StreamZap57
-    encoder = ir_encoder.StreamZap57
+    decoder = protocols.StreamZap57
+    encoder = protocols.StreamZap57
 
 
 class Sunfire(TestBase):
-    decoder = ir_decoder.Sunfire
-    encoder = ir_encoder.Sunfire
+    decoder = protocols.Sunfire
+    encoder = protocols.Sunfire
 
 
 class TDC38(TestBase):
-    decoder = ir_decoder.TDC38
-    encoder = ir_encoder.TDC38
+    decoder = protocols.TDC38
+    encoder = protocols.TDC38
 
 
 class TDC56(TestBase):
-    decoder = ir_decoder.TDC56
-    encoder = ir_encoder.TDC56
+    decoder = protocols.TDC56
+    encoder = protocols.TDC56
 
 
 class TeacK(TestBase):
-    decoder = ir_decoder.TeacK
-    encoder = ir_encoder.TeacK
+    decoder = protocols.TeacK
+    encoder = protocols.TeacK
 
 
 class Thomson(TestBase):
-    decoder = ir_decoder.Thomson
-    encoder = ir_encoder.Thomson
+    decoder = protocols.Thomson
+    encoder = protocols.Thomson
 
 
 class Thomson7(TestBase):
-    decoder = ir_decoder.Thomson7
-    encoder = ir_encoder.Thomson7
+    decoder = protocols.Thomson7
+    encoder = protocols.Thomson7
 
 
 class Tivo(TestBase):
-    decoder = ir_decoder.Tivo
-    encoder = ir_encoder.Tivo
+    decoder = protocols.Tivo
+    encoder = protocols.Tivo
 
 
 class Velleman(TestBase):
-    decoder = ir_decoder.Velleman
-    encoder = ir_encoder.Velleman
+    decoder = protocols.Velleman
+    encoder = protocols.Velleman
 
 
 class Viewstar(TestBase):
-    decoder = ir_decoder.Viewstar
-    encoder = ir_encoder.Viewstar
+    decoder = protocols.Viewstar
+    encoder = protocols.Viewstar
 
 #
 # class Whynter(TestBase):
-#     decoder = ir_decoder.Whynter
-#     encoder = ir_encoder.Whynter
+#     decoder = protocols.Whynter
+#     encoder = protocols.Whynter
 #
 
 class Zaptor36(TestBase):
-    decoder = ir_decoder.Zaptor36
-    encoder = ir_encoder.Zaptor36
+    decoder = protocols.Zaptor36
+    encoder = protocols.Zaptor36
 
 
 class Zaptor56(TestBase):
-    decoder = ir_decoder.Zaptor56
-    encoder = ir_encoder.Zaptor56
+    decoder = protocols.Zaptor56
+    encoder = protocols.Zaptor56
 
 
 class XBox360(TestBase):
-    decoder = ir_decoder.XBox360
-    encoder = ir_encoder.XBox360
+    decoder = protocols.XBox360
+    encoder = protocols.XBox360
 
 
 class XBoxOne(TestBase):
-    decoder = ir_decoder.XBoxOne
-    encoder = ir_encoder.XBoxOne
-
+    decoder = protocols.XBoxOne
+    encoder = protocols.XBoxOne
 
 if __name__ == '__main__':
     run_start = high_precision_timers.TimerUS()
@@ -1195,4 +1194,3 @@ if __name__ == '__main__':
     print('universals:', len(universals), universals)
     print('repeat_error:', len(repeat_error), repeat_error)
     print('decode_error:', len(decode_error), decode_error)
-

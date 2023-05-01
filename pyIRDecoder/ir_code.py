@@ -141,8 +141,8 @@ class IRCode(object):
         self._repeat_duration = repeat_timeout
         self.bind_released_callback(decoder.reset)
 
-        if self._name is None:
-            _process_thread_worker.add(self.__set_name)
+        #if self._name is None:
+            #_process_thread_worker.add(self.__set_name)
 
     def __iter__(self):
         for item in self.normalized_rlc:
@@ -489,7 +489,7 @@ class IRCode(object):
                 bits += bin(self.code)[2:]
             else:
                 for param, num_bits in self._decoder._code_order:
-                    bts = bin(self._data[param])[2:].zfill(num_bits)[:num_bits]
+                    bts = bin(int(self._data[param]))[2:].zfill(num_bits)[:num_bits]
                     if self._decoder.encoding == 'msb':
                         bits += bts
                     else:
