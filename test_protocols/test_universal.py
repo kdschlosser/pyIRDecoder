@@ -64,4 +64,4 @@ def test_decode():
                 value
             )
         print()
-        print(ir_code)
+        print(ir_code, repr(ir_code))

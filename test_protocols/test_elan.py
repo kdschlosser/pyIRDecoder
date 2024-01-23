@@ -63,7 +63,7 @@ def test_decode():
                 value
             )
         print()
-        print(ir_code)
+        print(ir_code, repr(ir_code))
 
 
 def test_encode():
@@ -93,7 +93,7 @@ def test_encode():
                 break
 
         print()
-        print(ir_code)
+        print(ir_code, repr(ir_code))
         print(new_ir_code)
         
         assert new_ir_code == ir_code

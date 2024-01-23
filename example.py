@@ -25,16 +25,68 @@
 
 # ****************************************************************************
 
+
+# in this example I am loading the modules from "test_protocols" so to see how
+# things are done then check those files.
+#
+#
+# The returned value from a successful decode is going to be an IRCode instance
+# this instance has manu useful functions and properties.
+# functions
+#
+# bind_released_callback(callback): bind a callback function for when the button gets released
+# unbind_released_callback(callback)L unbind the callback function
+#
+# repeat_count: number of times the code has repeated
+# params: list of the parameters the code has
+# decoder: the protocol class used to decode the code
+# frequency: IR signal frequency
+
+#
+# converted ir codes
+#
+# original_rlc: oriinal RLC that was decoded
+# normalized_rlc: Normalized RLC to match protocol specification
+# original_rlc_pronto: pronto code from the original RLC
+# normalized_rlc_pronto: pronto code from the normalized RLC
+# original_rlc_mce: original RLC rounded to the nearest 50us
+# original_mce_pronto: pronto code of the original mce rlc
+# normalized_rlc_mce: rlc normalized and then rounded to the nearest 50 us
+# normalized_mce_pronto: rlc normalized and then rounded to the nearest 50 us converted to pronto code
+#
+# below are the different attribute a code may have. In order to know what
+# attributes your code has use the params property to collect the list. of supported codes
+#
+# device
+# sub_device
+# function
+# toggle
+# mode
+# n
+# g
+# address
+# x
+# extended_function
+# u
+# oem
+# oem1
+# oem2
+#
+# additional properties that may be useful
+#
+# name: name of the code
+# hexadecimal: hex of the numberic value of the code
+
+
 from __future__ import print_function
 import random
-import pyIRDecoder
 import traceback
 import threading
 from pyIRDecoder import high_precision_timers
+from pyIRDecoder import protocols
+import os
 
-
-ir_decoder = pyIRDecoder.IRDecoder()
-ir_encoder = pyIRDecoder.IREncoder()
+ir_decoder = protocols.decode
 
 decoding_times = []
 
@@ -46,17 +98,17 @@ decode_error = []
 success = []
 
 
-class TestBase(object):
-    encoder = None
-    decoder = None
+class ProtocolBase(object):
+    enabled = True
 
     @classmethod
     def is_enabled(cls):
-        return cls.decoder.enabled
+        return cls.enabled
 
     @classmethod
     def enable(cls, value):
-        cls.decoder.enabled = value
+        cls.enabled = value
+        getattr(protocols, cls.__name__).enabled = value
 
     @classmethod
     def test(cls):
@@ -66,120 +118,59 @@ class TestBase(object):
                 skipped.append(cls.__name__)
                 return
 
-            params = {}
-            for name, min_val, max_val in cls.encoder.encode_parameters:
+            def get_file_name(cls_name, check_num=False):
+                last_char = ''
+                res = ''
+                for char in cls_name:
+                    if (
+                        char.isupper() and
+                        last_char and
+                        not last_char.isupper()
+                    ):
+                        res += '_' + char.lower()
 
-                if hasattr(cls.encoder, name):
-                    vals = getattr(cls.encoder, name)
-                    val = vals[random.randrange(0, len(vals) - 1)]
-                else:
-                    val = random.randrange(min_val, max_val)
+                    elif check_num and char.isdigit() and last_char and not last_char.isdigit():
+                        res += '_' + char
+                    else:
+                        res += char.lower()
+                    last_char = char
 
-                params[name] = val
+                return 'test_' + res
+            print(cls.__name__)
+            mod_name = get_file_name(cls.__name__)
+            try:
+                mod = getattr(__import__('test_protocols', fromlist=(mod_name,)), mod_name)
+            except:
+                mod_name = get_file_name(cls.__name__, check_num=True)
+                try:
+                    mod = getattr(__import__('test_protocols', fromlist=(mod_name,)), mod_name)
+                except:
+                    mod_name = 'test_' + cls.__name__.lower()
+                    mod = getattr(__import__('test_protocols', fromlist=(mod_name,)), mod_name)
+
+            test_cls = mod.__dict__[cls.__name__]
 
             print('encoding', cls.__name__)
-            print('parameters:', params)
+            print('parameters:', test_cls.params)
 
             start = high_precision_timers.TimerUS()
-            rlc = cls.encoder.encode(**params)
+            mod.test_encode()
             stop = start.elapsed()
 
             print('encoding duration:', stop, 'us')
-            print('rlc:')
-            print('[')
-            for item in rlc:
-                print('   ', str(item) + ',')
-            print(']')
             print()
-
-            repeat_count = random.randrange(1, 10)
-            print('encoding', cls.__name__, '{0} repeats'.format(repeat_count))
-            print('parameters:', params)
 
             start.reset()
-            rlc = cls.encoder.encode(repeat_count=repeat_count, **params)
+
+            print('decoding', cls.__name__)
+            print('rlc:', test_cls.rlc)
+            print()
+            mod.test_decode()
             stop = start.elapsed()
 
-            print('encoding duration:', stop, 'us')
-            print('rlc:')
-            print('[')
-            for item in rlc:
-                print('   ', str(item) + ',')
-            print(']')
+            print('decoding duration:', stop, 'us')
             print()
-            print()
-
-            print('decoding', cls.__name__, '{0} repeats'.format(repeat_count))
-            print('parameters:', params)
-            print()
-            wait_event = threading.Event()
-
-            def key_released_callback(_):
-                wait_event.set()
-
-            code = None
-            for c in rlc:
-                if code is not None and not code.repeat_timer.is_running:
-                    print('REPEAT CODE TIMER EXPIRED', code)
-
-                start.reset()
-                c = ir_decoder.decode(c, rlc.frequency)
-
-                if c is None:
-                    continue
-
-                stop = start.elapsed()
-
-                decoding_times.append(stop)
-                print('decoding time:', stop, 'us')
-
-                code = c
-                code.bind_released_callback(key_released_callback)
-                wait_event.wait(code.repeat_timer.duration / 1000000.0)
-
-            print()
-            if code is None:
-                for c in rlc:
-                    c = cls.decoder.decode(c, rlc.frequency)
-                    print(c)
-
-                failures.append(cls.__name__)
-                raise RuntimeError
-
-            if code.decoder == ir_decoder.Universal:
-                universals.append(cls.__name__)
-                raise RuntimeError
-
-            if not isinstance(cls.decoder, code.decoder.__class__):
-                raise RuntimeError(code.decoder.name + ' != ' + cls.decoder.name)
-
-            wait_event.wait(10)
-
-            print('key released')
-            print()
-            print('decoded friendly:', code)
-            print('decoded hexdecimal:', code.hexdecimal)
-            print('code length:', code.repeat_timer.duration / 1000.0, 'ms')
-
-            if not wait_event.is_set():
-                repeat_error.append(cls.__name__)
-                raise RuntimeError('repeat timeout problem')
-
-            print()
-            print('validating decode')
-            print('parameter name      value      expected value')
-            print('---------------------------------------------')
-            for key, val in params.items():
-                v = getattr(code, key.lower())
-                print(key + ' ' * (20 - len(key)) + str(v) + ' ' * (11 - len(str(v))) + str(val))
-                if v != val:
-                    decode_error.append(cls.__name__)
-                    raise ValueError(key + ', ' + str(val) + ', ' + str(v))
-
-            print()
-            print(code, 'successfully validated')
-            print()
-            print()
+            
             success.append(cls.__name__)
         except:
             failures.append(cls.__name__)
@@ -189,804 +180,645 @@ class TestBase(object):
             print()
 
 
-class AdNotham(TestBase):
-    decoder = ir_decoder.AdNotham
-    encoder = ir_encoder.AdNotham
+class AdNotham(ProtocolBase):
+    pass
 
 
-class Aiwa(TestBase):
-    decoder = ir_decoder.Aiwa
-    encoder = ir_encoder.Aiwa
+class Aiwa(ProtocolBase):
+    pass
 
 
-class Akai(TestBase):
-    decoder = ir_decoder.Akai
-    encoder = ir_encoder.Akai
+class Akai(ProtocolBase):
+    pass
 
 
-class Akord(TestBase):
-    decoder = ir_decoder.Akord
-    encoder = ir_encoder.Akord
+class Akord(ProtocolBase):
+    pass
 
 
-class Amino(TestBase):
-    decoder = ir_decoder.Amino
-    encoder = ir_encoder.Amino
+class Amino(ProtocolBase):
+    pass
 
 
-class Amino56(TestBase):
-    decoder = ir_decoder.Amino56
-    encoder = ir_encoder.Amino56
+class Amino56(ProtocolBase):
+    pass
 
 
-class Anthem(TestBase):
-    decoder = ir_decoder.Anthem
-    encoder = ir_encoder.Anthem
+class Anthem(ProtocolBase):
+    pass
 
 
-class Apple(TestBase):
-    decoder = ir_decoder.Apple
-    encoder = ir_encoder.Apple
+class Apple(ProtocolBase):
+    pass
 
 
-class Archer(TestBase):
-    decoder = ir_decoder.Archer
-    encoder = ir_encoder.Archer
+class Archer(ProtocolBase):
+    pass
 
 
-class Arctech(TestBase):
-    decoder = ir_decoder.Arctech
-    encoder = ir_encoder.Arctech
+class Arctech(ProtocolBase):
+    pass
 
 
-class Arctech38(TestBase):
-    decoder = ir_decoder.Arctech38
-    encoder = ir_encoder.Arctech38
+class Arctech38(ProtocolBase):
+    pass
 
 
-class Audiovox(TestBase):
-    decoder = ir_decoder.Audiovox
-    encoder = ir_encoder.Audiovox
+class Audiovox(ProtocolBase):
+    pass
 
 
-class Barco(TestBase):
-    decoder = ir_decoder.Barco
-    encoder = ir_encoder.Barco
+class Barco(ProtocolBase):
+    pass
 
 
-class Blaupunkt(TestBase):
-    decoder = ir_decoder.Blaupunkt
-    encoder = ir_encoder.Blaupunkt
+class Blaupunkt(ProtocolBase):
+    pass
 
 
-class Bose(TestBase):
-    decoder = ir_decoder.Bose
-    encoder = ir_encoder.Bose
+class Bose(ProtocolBase):
+    pass
 
 
-class Bryston(TestBase):
-    decoder = ir_decoder.Bryston
-    encoder = ir_encoder.Bryston
+class Bryston(ProtocolBase):
+    pass
 
 
-class CanalSat(TestBase):
-    decoder = ir_decoder.CanalSat
-    encoder = ir_encoder.CanalSat
+class CanalSat(ProtocolBase):
+    pass
 
 
-class CanalSatLD(TestBase):
-    decoder = ir_decoder.CanalSatLD
-    encoder = ir_encoder.CanalSatLD
+class CanalSatLD(ProtocolBase):
+    pass
 
 
-class Denon(TestBase):
-    decoder = ir_decoder.Denon
-    encoder = ir_encoder.Denon
+class Denon(ProtocolBase):
+    pass
 
 
-class DenonK(TestBase):
-    decoder = ir_decoder.DenonK
-    encoder = ir_encoder.DenonK
+class DenonK(ProtocolBase):
+    pass
 
 
-class Dgtec(TestBase):
-    decoder = ir_decoder.Dgtec
-    encoder = ir_encoder.Dgtec
+class Dgtec(ProtocolBase):
+    pass
 
 
-class Digivision(TestBase):
-    decoder = ir_decoder.Digivision
-    encoder = ir_encoder.Digivision
+class Digivision(ProtocolBase):
+    pass
 
 
-class DirecTV(TestBase):
-    decoder = ir_decoder.DirecTV
-    encoder = ir_encoder.DirecTV
+class DirecTV(ProtocolBase):
+    pass
 
 
-class DirecTV0(TestBase):
-    decoder = ir_decoder.DirecTV0
-    encoder = ir_encoder.DirecTV0
+class DirecTV0(ProtocolBase):
+    pass
 
 
-class DirecTV1(TestBase):
-    decoder = ir_decoder.DirecTV1
-    encoder = ir_encoder.DirecTV1
+class DirecTV1(ProtocolBase):
+    pass
 
 
-class DirecTV2(TestBase):
-    decoder = ir_decoder.DirecTV2
-    encoder = ir_encoder.DirecTV2
+class DirecTV2(ProtocolBase):
+    pass
 
 
-class DirecTV3(TestBase):
-    decoder = ir_decoder.DirecTV3
-    encoder = ir_encoder.DirecTV3
+class DirecTV3(ProtocolBase):
+    pass
 
 
-class DirecTV4(TestBase):
-    decoder = ir_decoder.DirecTV4
-    encoder = ir_encoder.DirecTV4
+class DirecTV4(ProtocolBase):
+    pass
 
 
-class DirecTV5(TestBase):
-    decoder = ir_decoder.DirecTV5
-    encoder = ir_encoder.DirecTV5
+class DirecTV5(ProtocolBase):
+    pass
 
 
-class DishNetwork(TestBase):
-    decoder = ir_decoder.DishNetwork
-    encoder = ir_encoder.DishNetwork
+class DishNetwork(ProtocolBase):
+    pass
 
 
-class DishPlayer(TestBase):
-    decoder = ir_decoder.DishPlayer
-    encoder = ir_encoder.DishPlayer
+class DishPlayer(ProtocolBase):
+    pass
 
 
-class Dyson(TestBase):
-    decoder = ir_decoder.Dyson
-    encoder = ir_encoder.Dyson
+class Dyson(ProtocolBase):
+    pass
 
 
-class Dyson2(TestBase):
-    decoder = ir_decoder.Dyson2
-    encoder = ir_encoder.Dyson2
+class Dyson2(ProtocolBase):
+    pass
 
 
-class Elan(TestBase):
-    decoder = ir_decoder.Elan
-    encoder = ir_encoder.Elan
+class Elan(ProtocolBase):
+    pass
 
 
-class Elunevision(TestBase):
-    decoder = ir_decoder.Elunevision
-    encoder = ir_encoder.Elunevision
+class Elunevision(ProtocolBase):
+    pass
 
 
-class Emerson(TestBase):
-    decoder = ir_decoder.Emerson
-    encoder = ir_encoder.Emerson
+class Emerson(ProtocolBase):
+    pass
 
 
-class Entone(TestBase):
-    decoder = ir_decoder.Entone
-    encoder = ir_encoder.Entone
+class Entone(ProtocolBase):
+    pass
 
 
-class F12(TestBase):
-    decoder = ir_decoder.F12
-    encoder = ir_encoder.F12
+class F12(ProtocolBase):
+    pass
 
 
-class F120(TestBase):
-    decoder = ir_decoder.F120
-    encoder = ir_encoder.F120
+class F120(ProtocolBase):
+    pass
 
 
-class F121(TestBase):
-    decoder = ir_decoder.F121
-    encoder = ir_encoder.F121
+class F121(ProtocolBase):
+    pass
 
 
-class F32(TestBase):
-    decoder = ir_decoder.F32
-    encoder = ir_encoder.F32
+class F32(ProtocolBase):
+    pass
 
 
-class Fujitsu(TestBase):
-    decoder = ir_decoder.Fujitsu
-    encoder = ir_encoder.Fujitsu
+class Fujitsu(ProtocolBase):
+    pass
 
 
-class Fujitsu128(TestBase):
-    decoder = ir_decoder.Fujitsu128
-    encoder = ir_encoder.Fujitsu128
+class Fujitsu128(ProtocolBase):
+    pass
 
 
-class Fujitsu56(TestBase):
-    decoder = ir_decoder.Fujitsu56
-    encoder = ir_encoder.Fujitsu56
+class Fujitsu56(ProtocolBase):
+    pass
 
 
-class GI4DTV(TestBase):
-    decoder = ir_decoder.GI4DTV
-    encoder = ir_encoder.GI4DTV
+class GI4DTV(ProtocolBase):
+    pass
 
 
-class GICable(TestBase):
-    decoder = ir_decoder.GICable
-    encoder = ir_encoder.GICable
+class GICable(ProtocolBase):
+    pass
 
 
-class GIRG(TestBase):
-    decoder = ir_decoder.GIRG
-    encoder = ir_encoder.GIRG
+class GIRG(ProtocolBase):
+    pass
 
 
-class Grundig16(TestBase):
-    decoder = ir_decoder.Grundig16
-    encoder = ir_encoder.Grundig16
+class Grundig16(ProtocolBase):
+    pass
 
 
-class Grundig1630(TestBase):
-    decoder = ir_decoder.Grundig1630
-    encoder = ir_encoder.Grundig1630
+class Grundig1630(ProtocolBase):
+    pass
 
 
-class GuangZhou(TestBase):
-    decoder = ir_decoder.GuangZhou
-    encoder = ir_encoder.GuangZhou
+class GuangZhou(ProtocolBase):
+    pass
 
 
-class GwtS(TestBase):
-    decoder = ir_decoder.GwtS
-    encoder = ir_encoder.GwtS
+class GwtS(ProtocolBase):
+    pass
 
 
-class GXB(TestBase):
-    decoder = ir_decoder.GXB
-    encoder = ir_encoder.GXB
+class GXB(ProtocolBase):
+    pass
 
 
-class Humax4Phase(TestBase):
-    decoder = ir_decoder.Humax4Phase
-    encoder = ir_encoder.Humax4Phase
+class Humax4Phase(ProtocolBase):
+    pass
 
 
-class InterVideoRC201(TestBase):
-    decoder = ir_decoder.InterVideoRC201
-    encoder = ir_encoder.InterVideoRC201
+class InterVideoRC201(ProtocolBase):
+    pass
 
 
-class IODATAn(TestBase):
-    decoder = ir_decoder.IODATAn
-    encoder = ir_encoder.IODATAn
+class IODATAn(ProtocolBase):
+    pass
 
 
-class Jerrold(TestBase):
-    decoder = ir_decoder.Jerrold
-    encoder = ir_encoder.Jerrold
+class Jerrold(ProtocolBase):
+    pass
 
 
-class JVC(TestBase):
-    decoder = ir_decoder.JVC
-    encoder = ir_encoder.JVC
+class JVC(ProtocolBase):
+    pass
 
 
-class JVC48(TestBase):
-    decoder = ir_decoder.JVC48
-    encoder = ir_encoder.JVC48
+class JVC48(ProtocolBase):
+    pass
 
 
-class JVC56(TestBase):
-    decoder = ir_decoder.JVC56
-    encoder = ir_encoder.JVC56
+class JVC56(ProtocolBase):
+    pass
 
 
-class Kaseikyo(TestBase):
-    decoder = ir_decoder.Kaseikyo
-    encoder = ir_encoder.Kaseikyo
+class Kaseikyo(ProtocolBase):
+    pass
 
 
-class Kaseikyo56(TestBase):
-    decoder = ir_decoder.Kaseikyo56
-    encoder = ir_encoder.Kaseikyo56
+class Kaseikyo56(ProtocolBase):
+    pass
 
 
-class Kathrein(TestBase):
-    decoder = ir_decoder.Kathrein
-    encoder = ir_encoder.Kathrein
+class Kathrein(ProtocolBase):
+    pass
 
 
-class Konka(TestBase):
-    decoder = ir_decoder.Konka
-    encoder = ir_encoder.Konka
+class Konka(ProtocolBase):
+    pass
 
 
-class Logitech(TestBase):
-    decoder = ir_decoder.Logitech
-    encoder = ir_encoder.Logitech
+class Logitech(ProtocolBase):
+    pass
 
 
-class Lumagen(TestBase):
-    decoder = ir_decoder.Lumagen
-    encoder = ir_encoder.Lumagen
+class Lumagen(ProtocolBase):
+    pass
 
 
-class Lutron(TestBase):
-    decoder = ir_decoder.Lutron
-    encoder = ir_encoder.Lutron
+class Lutron(ProtocolBase):
+    pass
 
 
-class Matsui(TestBase):
-    decoder = ir_decoder.Matsui
-    encoder = ir_encoder.Matsui
+class Matsui(ProtocolBase):
+    pass
 
 
-class MCE(TestBase):
-    decoder = ir_decoder.MCE
-    encoder = ir_encoder.MCE
+class MCE(ProtocolBase):
+    pass
 
 
-class MCIR2kbd(TestBase):
-    decoder = ir_decoder.MCIR2kbd
-    encoder = ir_encoder.MCIR2kbd
+class MCIR2kbd(ProtocolBase):
+    pass
 
 
-class MCIR2mouse(TestBase):
-    decoder = ir_decoder.MCIR2mouse
-    encoder = ir_encoder.MCIR2mouse
+class MCIR2mouse(ProtocolBase):
+    pass
 
 
-class Metz19(TestBase):
-    decoder = ir_decoder.Metz19
-    encoder = ir_encoder.Metz19
+class Metz19(ProtocolBase):
+    pass
 
 
-class Mitsubishi(TestBase):
-    decoder = ir_decoder.Mitsubishi
-    encoder = ir_encoder.Mitsubishi
+class Mitsubishi(ProtocolBase):
+    pass
 
 
-class MitsubishiK(TestBase):
-    decoder = ir_decoder.MitsubishiK
-    encoder = ir_encoder.MitsubishiK
+class MitsubishiK(ProtocolBase):
+    pass
 
 
-class Motorola(TestBase):
-    decoder = ir_decoder.Motorola
-    encoder = ir_encoder.Motorola
+class Motorola(ProtocolBase):
+    pass
 
 
-class NEC(TestBase):
-    decoder = ir_decoder.NEC
-    encoder = ir_encoder.NEC
+class NEC(ProtocolBase):
+    pass
 
 
-class NEC48(TestBase):
-    decoder = ir_decoder.NEC48
-    encoder = ir_encoder.NEC48
+class NEC48(ProtocolBase):
+    pass
 
 
-class NECf16(TestBase):
-    decoder = ir_decoder.NECf16
-    encoder = ir_encoder.NECf16
+class NECf16(ProtocolBase):
+    pass
 
 
-class NECrnc(TestBase):
-    decoder = ir_decoder.NECrnc
-    encoder = ir_encoder.NECrnc
+class NECrnc(ProtocolBase):
+    pass
 
 
-class NECx(TestBase):
-    decoder = ir_decoder.NECx
-    encoder = ir_encoder.NECx
+class NECx(ProtocolBase):
+    pass
 
 
-class NECxf16(TestBase):
-    decoder = ir_decoder.NECxf16
-    encoder = ir_encoder.NECxf16
+class NECxf16(ProtocolBase):
+    pass
 
 
-class Nokia(TestBase):
-    decoder = ir_decoder.Nokia
-    encoder = ir_encoder.Nokia
+class Nokia(ProtocolBase):
+    pass
 
 
-class Nokia12(TestBase):
-    decoder = ir_decoder.Nokia12
-    encoder = ir_encoder.Nokia12
+class Nokia12(ProtocolBase):
+    pass
 
 
-class Nokia32(TestBase):
-    decoder = ir_decoder.Nokia32
-    encoder = ir_encoder.Nokia32
+class Nokia32(ProtocolBase):
+    pass
 
 
-class NovaPace(TestBase):
-    decoder = ir_decoder.NovaPace
-    encoder = ir_encoder.NovaPace
+class NovaPace(ProtocolBase):
+    pass
 
 
-class NRC16(TestBase):
-    decoder = ir_decoder.NRC16
-    encoder = ir_encoder.NRC16
+class NRC16(ProtocolBase):
+    pass
 
 
-class NRC1632(TestBase):
-    decoder = ir_decoder.NRC1632
-    encoder = ir_encoder.NRC1632
+class NRC1632(ProtocolBase):
+    pass
 
 
-class NRC17(TestBase):
-    decoder = ir_decoder.NRC17
-    encoder = ir_encoder.NRC17
+class NRC17(ProtocolBase):
+    pass
 
 
-class Ortek(TestBase):
-    decoder = ir_decoder.Ortek
-    encoder = ir_encoder.Ortek
+class Ortek(ProtocolBase):
+    pass
 
 
-class OrtekMCE(TestBase):
-    decoder = ir_decoder.OrtekMCE
-    encoder = ir_encoder.OrtekMCE
+class OrtekMCE(ProtocolBase):
+    pass
 
 
-class PaceMSS(TestBase):
-    decoder = ir_decoder.PaceMSS
-    encoder = ir_encoder.PaceMSS
+class PaceMSS(ProtocolBase):
+    pass
 
 
-class Panasonic(TestBase):
-    decoder = ir_decoder.Panasonic
-    encoder = ir_encoder.Panasonic
+class Panasonic(ProtocolBase):
+    pass
 
 
-class Panasonic2(TestBase):
-    decoder = ir_decoder.Panasonic2
-    encoder = ir_encoder.Panasonic2
+class Panasonic2(ProtocolBase):
+    pass
 
 
-class PanasonicOld(TestBase):
-    decoder = ir_decoder.PanasonicOld
-    encoder = ir_encoder.PanasonicOld
+class PanasonicOld(ProtocolBase):
+    pass
 
 
-class PCTV(TestBase):
-    decoder = ir_decoder.PCTV
-    encoder = ir_encoder.PCTV
+class PCTV(ProtocolBase):
+    pass
 
 
-class PID0001(TestBase):
-    decoder = ir_decoder.PID0001
-    encoder = ir_encoder.PID0001
+class PID0001(ProtocolBase):
+    pass
 
 
-class PID0003(TestBase):
-    decoder = ir_decoder.PID0003
-    encoder = ir_encoder.PID0003
+class PID0003(ProtocolBase):
+    pass
 
 
-class PID0004(TestBase):
-    decoder = ir_decoder.PID0004
-    encoder = ir_encoder.PID0004
+class PID0004(ProtocolBase):
+    pass
 
 
-class PID0083(TestBase):
-    decoder = ir_decoder.PID0083
-    encoder = ir_encoder.PID0083
+class PID0083(ProtocolBase):
+    pass
 
 
-class Pioneer(TestBase):
-    decoder = ir_decoder.Pioneer
-    encoder = ir_encoder.Pioneer
+class Pioneer(ProtocolBase):
+    pass
 
 
-class Proton(TestBase):
-    decoder = ir_decoder.Proton
-    encoder = ir_encoder.Proton
+class Proton(ProtocolBase):
+    pass
 
 
-class Proton40(TestBase):
-    decoder = ir_decoder.Proton40
-    encoder = ir_encoder.Proton40
+class Proton40(ProtocolBase):
+    pass
 
 
-class RC5(TestBase):
-    decoder = ir_decoder.RC5
-    encoder = ir_encoder.RC5
+class RC5(ProtocolBase):
+    pass
 
 
-class RC57F(TestBase):
-    decoder = ir_decoder.RC57F
-    encoder = ir_encoder.RC57F
+class RC57F(ProtocolBase):
+    pass
 
 
-class RC57F57(TestBase):
-    decoder = ir_decoder.RC57F57
-    encoder = ir_encoder.RC57F57
+class RC57F57(ProtocolBase):
+    pass
 
 
-class RC5x(TestBase):
-    decoder = ir_decoder.RC5x
-    encoder = ir_encoder.RC5x
+class RC5x(ProtocolBase):
+    pass
 
 
-class RC6(TestBase):
-    decoder = ir_decoder.RC6
-    encoder = ir_encoder.RC6
+class RC6(ProtocolBase):
+    pass
 
 
-class RC6620(TestBase):
-    decoder = ir_decoder.RC6620
-    encoder = ir_encoder.RC6620
+class RC6620(ProtocolBase):
+    pass
 
 
-class RC6624(TestBase):
-    decoder = ir_decoder.RC6624
-    encoder = ir_encoder.RC6624
+class RC6624(ProtocolBase):
+    pass
 
 
-class RC6632(TestBase):
-    decoder = ir_decoder.RC6632
-    encoder = ir_encoder.RC6632
+class RC6632(ProtocolBase):
+    pass
 
 
-class RC6M16(TestBase):
-    decoder = ir_decoder.RC6M16
-    encoder = ir_encoder.RC6M16
+class RC6M16(ProtocolBase):
+    pass
 
 
-class RC6M28(TestBase):
-    decoder = ir_decoder.RC6M28
-    encoder = ir_encoder.RC6M28
+class RC6M28(ProtocolBase):
+    pass
 
 
-class RC6M32(TestBase):
-    decoder = ir_decoder.RC6M32
-    encoder = ir_encoder.RC6M32
+class RC6M32(ProtocolBase):
+    pass
 
 
-class RC6M56(TestBase):
-    decoder = ir_decoder.RC6M56
-    encoder = ir_encoder.RC6M56
+class RC6M56(ProtocolBase):
+    pass
 
 
-class RC6MBIT(TestBase):
-    decoder = ir_decoder.RC6MBIT
-    encoder = ir_encoder.RC6MBIT
+class RC6MBIT(ProtocolBase):
+    pass
 
 
-class RCA(TestBase):
-    decoder = ir_decoder.RCA
-    encoder = ir_encoder.RCA
+class RCA(ProtocolBase):
+    pass
 
 
-class RCA38(TestBase):
-    decoder = ir_decoder.RCA38
-    encoder = ir_encoder.RCA38
+class RCA38(ProtocolBase):
+    pass
 
 
-class RCA38Old(TestBase):
-    decoder = ir_decoder.RCA38Old
-    encoder = ir_encoder.RCA38Old
+class RCA38Old(ProtocolBase):
+    pass
 
 
-class RCAOld(TestBase):
-    decoder = ir_decoder.RCAOld
-    encoder = ir_encoder.RCAOld
+class RCAOld(ProtocolBase):
+    pass
 
 
-class RCMM(TestBase):
-    decoder = ir_decoder.RCMM
-    encoder = ir_encoder.RCMM
+class RCMM(ProtocolBase):
+    pass
 
 
-class RECS800045(TestBase):
-    decoder = ir_decoder.RECS800045
-    encoder = ir_encoder.RECS800045
+class RECS800045(ProtocolBase):
+    pass
 
 
-class RECS800068(TestBase):
-    decoder = ir_decoder.RECS800068
-    encoder = ir_encoder.RECS800068
+class RECS800068(ProtocolBase):
+    pass
 
 
-class RECS800090(TestBase):
-    decoder = ir_decoder.RECS800090
-    encoder = ir_encoder.RECS800090
+class RECS800090(ProtocolBase):
+    pass
 
 
-class Revox(TestBase):
-    decoder = ir_decoder.Revox
-    encoder = ir_encoder.Revox
+class Revox(ProtocolBase):
+    pass
 
 
-class Roku(TestBase):
-    decoder = ir_decoder.Roku
-    encoder = ir_encoder.Roku
+class Roku(ProtocolBase):
+    pass
 
 
-class Rs200(TestBase):
-    decoder = ir_decoder.Rs200
-    encoder = ir_encoder.Rs200
+class Rs200(ProtocolBase):
+    pass
 
 
-class RTIRelay(TestBase):
-    decoder = ir_decoder.RTIRelay
-    encoder = ir_encoder.RTIRelay
+class RTIRelay(ProtocolBase):
+    pass
 
 
-class Sampo(TestBase):
-    decoder = ir_decoder.Sampo
-    encoder = ir_encoder.Sampo
+class Sampo(ProtocolBase):
+    pass
 
 
-class Samsung20(TestBase):
-    decoder = ir_decoder.Samsung20
-    encoder = ir_encoder.Samsung20
+class Samsung20(ProtocolBase):
+    pass
 
 
-class Samsung36(TestBase):
-    decoder = ir_decoder.Samsung36
-    encoder = ir_encoder.Samsung36
+class Samsung36(ProtocolBase):
+    pass
 
 
-class SamsungSMTG(TestBase):
-    decoder = ir_decoder.SamsungSMTG
-    encoder = ir_encoder.SamsungSMTG
+class SamsungSMTG(ProtocolBase):
+    pass
 
 
-class ScAtl6(TestBase):
-    decoder = ir_decoder.ScAtl6
-    encoder = ir_encoder.ScAtl6
+class ScAtl6(ProtocolBase):
+    pass
 
 
-class Sharp(TestBase):
-    decoder = ir_decoder.Sharp
-    encoder = ir_encoder.Sharp
+class Sharp(ProtocolBase):
+    pass
 
 
-class Sharp1(TestBase):
-    decoder = ir_decoder.Sharp1
-    encoder = ir_encoder.Sharp1
+class Sharp1(ProtocolBase):
+    pass
 
 
-class Sharp2(TestBase):
-    decoder = ir_decoder.Sharp2
-    encoder = ir_encoder.Sharp2
+class Sharp2(ProtocolBase):
+    pass
 
 
-class SharpDVD(TestBase):
-    decoder = ir_decoder.SharpDVD
-    encoder = ir_encoder.SharpDVD
+class SharpDVD(ProtocolBase):
+    pass
 
 
-class SIM2(TestBase):
-    decoder = ir_decoder.SIM2
-    encoder = ir_encoder.SIM2
+class SIM2(ProtocolBase):
+    pass
 
 
-class Sky(TestBase):
-    decoder = ir_decoder.Sky
-    encoder = ir_encoder.Sky
+class Sky(ProtocolBase):
+    pass
 
 
-class SkyHD(TestBase):
-    decoder = ir_decoder.SkyHD
-    encoder = ir_encoder.SkyHD
+class SkyHD(ProtocolBase):
+    pass
 
 
-class SkyPlus(TestBase):
-    decoder = ir_decoder.SkyPlus
-    encoder = ir_encoder.SkyPlus
+class SkyPlus(ProtocolBase):
+    pass
 
 
-class Somfy(TestBase):
-    decoder = ir_decoder.Somfy
-    encoder = ir_encoder.Somfy
+class Somfy(ProtocolBase):
+    pass
 
 
-class Sony12(TestBase):
-    decoder = ir_decoder.Sony12
-    encoder = ir_encoder.Sony12
+class Sony12(ProtocolBase):
+    pass
 
 
-class Sony15(TestBase):
-    decoder = ir_decoder.Sony15
-    encoder = ir_encoder.Sony15
+class Sony15(ProtocolBase):
+    pass
 
 
-class Sony20(TestBase):
-    decoder = ir_decoder.Sony20
-    encoder = ir_encoder.Sony20
+class Sony20(ProtocolBase):
+    pass
 
 
-class Sony8(TestBase):
-    decoder = ir_decoder.Sony8
-    encoder = ir_encoder.Sony8
+class Sony8(ProtocolBase):
+    pass
 
 
-class StreamZap(TestBase):
-    decoder = ir_decoder.StreamZap
-    encoder = ir_encoder.StreamZap
+class StreamZap(ProtocolBase):
+    pass
 
 
-class StreamZap57(TestBase):
-    decoder = ir_decoder.StreamZap57
-    encoder = ir_encoder.StreamZap57
+class StreamZap57(ProtocolBase):
+    pass
 
 
-class Sunfire(TestBase):
-    decoder = ir_decoder.Sunfire
-    encoder = ir_encoder.Sunfire
+class Sunfire(ProtocolBase):
+    pass
 
 
-class TDC38(TestBase):
-    decoder = ir_decoder.TDC38
-    encoder = ir_encoder.TDC38
+class TDC38(ProtocolBase):
+    pass
 
 
-class TDC56(TestBase):
-    decoder = ir_decoder.TDC56
-    encoder = ir_encoder.TDC56
+class TDC56(ProtocolBase):
+    pass
 
 
-class TeacK(TestBase):
-    decoder = ir_decoder.TeacK
-    encoder = ir_encoder.TeacK
+class TeacK(ProtocolBase):
+    pass
 
 
-class Thomson(TestBase):
-    decoder = ir_decoder.Thomson
-    encoder = ir_encoder.Thomson
+class Thomson(ProtocolBase):
+    pass
 
 
-class Thomson7(TestBase):
-    decoder = ir_decoder.Thomson7
-    encoder = ir_encoder.Thomson7
+class Thomson7(ProtocolBase):
+    pass
 
 
-class Tivo(TestBase):
-    decoder = ir_decoder.Tivo
-    encoder = ir_encoder.Tivo
+class Tivo(ProtocolBase):
+    pass
 
 
-class Velleman(TestBase):
-    decoder = ir_decoder.Velleman
-    encoder = ir_encoder.Velleman
+class Velleman(ProtocolBase):
+    pass
 
 
-class Viewstar(TestBase):
-    decoder = ir_decoder.Viewstar
-    encoder = ir_encoder.Viewstar
+class Viewstar(ProtocolBase):
+    pass
 
 #
-# class Whynter(TestBase):
+# class Whynter(ProtocolBase):
 #     decoder = ir_decoder.Whynter
 #     encoder = ir_encoder.Whynter
 #
 
-class Zaptor36(TestBase):
-    decoder = ir_decoder.Zaptor36
-    encoder = ir_encoder.Zaptor36
+class Zaptor36(ProtocolBase):
+    pass
 
 
-class Zaptor56(TestBase):
-    decoder = ir_decoder.Zaptor56
-    encoder = ir_encoder.Zaptor56
+class Zaptor56(ProtocolBase):
+    pass
 
 
-class XBox360(TestBase):
-    decoder = ir_decoder.XBox360
-    encoder = ir_encoder.XBox360
+class XBox360(ProtocolBase):
+    pass
 
 
-class XBoxOne(TestBase):
-    decoder = ir_decoder.XBoxOne
-    encoder = ir_encoder.XBoxOne
+class XBoxOne(ProtocolBase):
+    pass
 
 
 if __name__ == '__main__':
