@@ -26,6 +26,7 @@
 # ****************************************************************************
 # Local imports
 from . import protocol_base
+from .. import LeadOutError, LeadInError
 
 TIMING = 895
 
@@ -34,6 +35,8 @@ class AdNotham(protocol_base.IrProtocolBase):
     """
     IR decoder for the AdNotham protocol.
     """
+
+    [[895, -1790, 1790, -895, 895, -895, 895, -1790, 895, -895, 895, -895, 1790, -1790, 895, -895, 1790, -1790, 1790, -89835]]
     
     irp = '{35.7k,895,msb}<1,-1|-1,1>(1,-2,1,D:6,F:6,^114m)*'
     frequency = 35700
@@ -63,18 +66,18 @@ class AdNotham(protocol_base.IrProtocolBase):
     #     code = data[:]
     #     original_code = data[:]
     #     normalized_code = []
-    # 
+    #
     #     tt = sum(abs(item) for item in code)
-    # 
-    #     if not self._match(tt, self._lead_out[:]):
+    #
+    #     if not self._match(tt, self._lead_out[0]):
     #         raise LeadOutError
-    # 
+    #
     #     if not self._match_sequence(code[:2], self._lead_in[:2]):
     #         raise LeadInError
-    # 
+    #
     #     code = code[2:]
     #     original_code.extend(self._lead_in[:2])
-    # 
+    #
     #     if self._match(code[0], self._lead_in[-1]):
     #         code = code[1:]
     #     else:
@@ -85,37 +88,37 @@ class AdNotham(protocol_base.IrProtocolBase):
     #                 break
     #         else:
     #             raise LeadInError
-    # 
+    #
     #     normalized_code.append(self._lead_in)
-    # 
+    #
     #     n_code, decoded = self._decode_manchester(code)
     #     normalized_code += n_code
-    # 
+    #
     #     tt = sum(abs(item) for item in normalized_code)
     #     normalized_code.append(self._lead_out[-1] - tt)
-    # 
+    #
     #     params = dict(frequency=self.frequency)
     #     for param, start, stop in self._parameters:
     #         value = 0
     #         for i in range(start, stop + 1):
     #             value |= decoded[i] << ~i + stop + 1
-    # 
+    #
     #         params[param] = value
-    # 
+    #
     #     code = protocol_base.IRCode(
     #         self,
     #         original_code,
     #         normalized_code,
     #         params
     #     )
-    # 
+    #
     #     if self._last_code is not None:
     #         if self._last_code == code:
     #             return self._last_code
-    # 
+    #
     #         self._last_code.repeat_timer.stop()
     #         self._last_code = None
-    # 
+    #
     #     self._last_code = code
     #     return code
 

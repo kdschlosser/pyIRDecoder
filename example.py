@@ -119,21 +119,28 @@ class ProtocolBase(object):
                 return
 
             def get_file_name(cls_name, check_num=False):
+                last_last_char = ''
                 last_char = ''
                 res = ''
                 for char in cls_name:
                     if (
-                        char.isupper() and
+                        res and
+                        char.islower() and
                         last_char and
-                        not last_char.isupper()
+                        last_char.isupper() and not last_last_char.isupper()
                     ):
-                        res += '_' + char.lower()
+                        res += '_' + last_char.lower()
+                    elif res and check_num and last_char.isdigit() and not res[-1].isdigit():
+                        res += '_' + last_char
+                    elif last_char:
+                        res += last_char.lower()
 
-                    elif check_num and char.isdigit() and last_char and not last_char.isdigit():
-                        res += '_' + char
-                    else:
-                        res += char.lower()
+                    last_last_char = last_char
                     last_char = char
+
+                if last_char.isupper() and not last_last_char.isupper():
+                    res += '_'
+                res += last_char.lower()
 
                 return 'test_' + res
             print(cls.__name__)
@@ -173,9 +180,8 @@ class ProtocolBase(object):
             
             success.append(cls.__name__)
         except:
-            failures.append(cls.__name__)
+            failures.append((cls.__name__, traceback.format_exc()))
             print()
-            traceback.print_exc()
             print()
             print()
 
@@ -1021,10 +1027,9 @@ if __name__ == '__main__':
     print('number of decodes:', len(decoding_times))
     print('total run time:', run_start.elapsed() / 1000.0, 'ms')
 
-    print('failures:', len(failures), failures)
+    print('failures:', len(failures))
     print('success:', len(success), success)
     print('skipped:', len(skipped), skipped)
     print('universals:', len(universals), universals)
     print('repeat_error:', len(repeat_error), repeat_error)
     print('decode_error:', len(decode_error), decode_error)
-

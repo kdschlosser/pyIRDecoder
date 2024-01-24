@@ -152,6 +152,16 @@ class CodeWrapper(object):
         self._middle_timings = middle_timings[:]
 
         total_time = sum(abs(item) for item in code[:-1])
+        try:
+            if self._lead_out and self._lead_out[-1] > 0:
+                expected_lead_out = self._lead_out[-1] - total_time
+
+                if not self._match(-expected_lead_out, code[-1]):
+                    print(self._lead_out[-1], total_time)
+                    raise LeadOutError(str(-expected_lead_out) + ':' + str(code[-1]))
+        except IndexError:
+            pass
+
         decoded_code = []
         cleaned_code = []
         pairs = []

@@ -90,8 +90,8 @@ class RC6(protocol_base.IrProtocolBase):
             last_code = self._last_code
             self._last_code.repeat_timer.stop()
 
-            if last_code == code:
-                raise RepeatLeadOutError
+            # if last_code == code:
+            #     raise RepeatLeadOutError
 
         self._last_code = code
 

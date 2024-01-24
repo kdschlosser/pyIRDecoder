@@ -85,8 +85,8 @@ class NovaPace(protocol_base.IrProtocolBase):
             self._last_code.repeat_timer.stop()
             self._last_code = None
 
-            if last_code == code:
-                raise RepeatLeadOutError
+            # if last_code == code:
+            #     raise RepeatLeadOutError
 
         self._last_code = code
         return code

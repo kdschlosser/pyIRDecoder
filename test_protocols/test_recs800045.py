@@ -34,7 +34,7 @@ from pyIRDecoder import protocols
 protocol = protocols.RECS800045
 
 
-class _RECS800045(object):
+class RECS800045(object):
     rlc = [[
         158, -7426, 158, -4898, 158, -4898, 158, -7426, 158, -7426, 158,
         -7426, 158, -4898, 158, -7426, 158, -4898, 158, -4898, 158,
@@ -45,7 +45,7 @@ class _RECS800045(object):
 
 
 def test_decode():
-    for rlc, params in zip(_RECS800045.rlc, _RECS800045.params):
+    for rlc, params in zip(RECS800045.rlc, RECS800045.params):
         try:
             ir_code = protocol.decode(rlc, protocol.frequency)
         except (RepeatLeadInError, RepeatLeadOutError):
@@ -64,7 +64,7 @@ def test_decode():
 
 
 def test_encode():
-    for params in _RECS800045.params:
+    for params in RECS800045.params:
         if params is None:
             continue
 

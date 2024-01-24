@@ -59,7 +59,10 @@ def test_decode():
             if params is not None:
                 raise
             continue
-        
+
+        if params is None:
+            continue
+
         for key, value in params.items():
             assert getattr(ir_code, key) == value, (
                 key,

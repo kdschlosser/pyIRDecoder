@@ -29,7 +29,7 @@ from typing import Sequence
 
 # Local imports
 from . import protocol_base
-from . import DecodeError, IRException
+from . import DecodeError, NotEnoughBitsError
 
 
 TIMING = 540
@@ -53,6 +53,7 @@ class Kathrein(protocol_base.IrProtocolBase):
 
     _lead_in = [TIMING * 16, -TIMING * 8]
     _lead_out = [TIMING, 105000]
+
     _middle_timings = []
     _bursts = [[TIMING, -TIMING], [TIMING, -TIMING * 3]]
 
@@ -87,9 +88,15 @@ class Kathrein(protocol_base.IrProtocolBase):
         return d, f
 
     def decode(self, data: list, frequency: int = 0) -> protocol_base.IRCode:
-        self.bit_count = self._bit_count1
-        self._parameters = self._parameters1
+        self.bit_count = self._bit_count2
+        self._parameters = self._parameters2
+
         try:
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        except:
+            self.bit_count = self._bit_count1
+            self._parameters = self._parameters1
+
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
             dev_checksum, func_checksum = (
                 self._calc_checksum(code.device, code.function)
@@ -100,19 +107,12 @@ class Kathrein(protocol_base.IrProtocolBase):
                 func_checksum != code.f_checksum
             ):
                 raise DecodeError('Checksum failed')
-        except IRException:
-            if self._last_code is None:
-                raise
 
-            self.bit_count = self._bit_count2
-            self._parameters = self._parameters2
-            try:
-                code = (
-                    protocol_base.IrProtocolBase.decode(self, data, frequency)
-                )
-            finally:
-                self.bit_count = self._bit_count1
-                self._parameters = self._parameters1
+            print(code)
+
+        else:
+            if self._last_code is None:
+                raise DecodeError(str(code._code.stream_pairs))
 
             if code.function != self._last_code.function:
                 raise DecodeError
@@ -169,8 +169,8 @@ class Kathrein(protocol_base.IrProtocolBase):
 
         code = protocol_base.IRCode(
             self,
-            packet[:] + (repeat * repeat_count),
-            [packet[:]] + ([repeat] * repeat_count),
+            packet[:],
+            [packet[:]] + ([repeat] * (repeat_count + 1)),
             params,
             repeat_count
         )

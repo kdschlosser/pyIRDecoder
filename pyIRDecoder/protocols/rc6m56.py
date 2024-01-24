@@ -56,7 +56,7 @@ class RC6M56(protocol_base.IrProtocolBase):
     }]
     _bursts = [[-TIMING, TIMING], [TIMING, -TIMING]]
 
-    _has_repeat_lead_out = True
+    _has_repeat_lead_out = False
 
     _code_order = [
         ['M', 4],
@@ -91,8 +91,8 @@ class RC6M56(protocol_base.IrProtocolBase):
             last_code = self._last_code
             self._last_code.repeat_timer.stop()
 
-            if last_code == code:
-                raise RepeatLeadOutError
+            # if last_code == code:
+            #     raise RepeatLeadOutError
 
         self._last_code = code
         return code
