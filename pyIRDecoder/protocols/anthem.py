@@ -27,7 +27,7 @@
 
 # Local imports
 from . import protocol_base
-from . import LeadOutError, DecodeError, RepeatLeadInError
+from . import LeadOutError, DecodeError, RepeatLeadInError, RepeatTimeoutExpired, ExpectingMoreData
 
 
 TIMING = 605
@@ -38,9 +38,14 @@ class Anthem(protocol_base.IrProtocolBase):
     IR decoder for the Anthem protocol.
     """
     irp = (
-        '{38.0k,605,lsb}<1,-1|1,-3>((8000u,-4000u,D:8,S:8,F:8,C:8,1,-25m)2,'
-        '8000u,-4000u,D:8,S:8,F:8,C:8,1,-75m)*{C=~(D+S+F+255):8}'
+        '{38.0k,605,lsb}<1,-1|1,-3>((8000u,-4000u,D:8,S:8,F:8,C:8,1,-25m)2,8000u,-4000u,D:8,S:8,F:8,C:8,1,-75m)*{C=~(D+S+F+255):8}'
     )
+
+    '(8000u,-4000u,D:8,S:8,F:8,C:8,1,-25m)2,'
+
+    '8000u,-4000u,D:8,S:8,F:8,C:8,1,-25m'
+    '8000u,-4000u,D:8,S:8,F:8,C:8,1,-25m'
+    '8000u,-4000u,D:8,S:8,F:8,C:8,1,-75m'
 
     frequency = 38000
     bit_count = 32
@@ -100,26 +105,44 @@ class Anthem(protocol_base.IrProtocolBase):
             raise DecodeError('Checksum failed')
 
         if self._lead_out == self._lead_out1:
-            self._stored_codes.append(code)
-            raise RepeatLeadInError
-        elif len(self._stored_codes) == 2:
-            new_code = self._stored_codes[0]
-            new_code += self._stored_codes[1]
-            del self._stored_codes[:]
-            new_code += code
-            code = new_code
-        else:
-            del self._stored_codes[:]
-            raise RepeatLeadInError
+            if len(self._stored_codes) == 0:
+                self._stored_codes.append(code)
 
-        if self._last_code is not None:
-            if self._last_code == code:
-                return self._last_code
+                raise ExpectingMoreData
+            else:
+                if code != self._stored_codes[0]:
+                    del self._stored_codes[:]
+                    if self._last_code is not None:
+                        self._last_code.repeat_timer.stop()
+                        self._last_code = None
 
-            self._last_code.repeat_timer.stop()
+                elif len(self._stored_codes) > 1:
+                    raise DecodeError
 
-        self._last_code = code
-        return code
+                self._stored_codes.append(code)
+                raise ExpectingMoreData
+
+        elif self._lead_out == self._lead_out2:
+            if len(self._stored_codes) == 2:
+                self._stored_codes.append(code)
+                new_code = self._stored_codes[0]
+                new_code += self._stored_codes[1]
+                new_code += code
+
+                if self._last_code is not None:
+                    self._last_code.repeat_timer.stop()
+                    self._last_code = None
+
+                self._last_code = code
+                return code
+            elif len(self._stored_codes) == 3:
+                if code == self._stored_codes[2]:
+                    if self._last_code is not None:
+                        return self._last_code
+
+                    raise RepeatTimeoutExpired
+
+                raise DecodeError
 
     def encode(
         self,
@@ -175,8 +198,8 @@ class Anthem(protocol_base.IrProtocolBase):
 
         code = protocol_base.IRCode(
             self,
-            (lead_in[:] + lead_in[:] + code[:]) * (repeat_count + 1),
-            ([lead_in[:]] + [lead_in[:]] + [code[:]]) * (repeat_count + 1),
+            lead_in[:] + lead_in[:] + (code[:] * (repeat_count + 1)),
+            [lead_in[:]] + [lead_in[:]] + ([code[:]] * (repeat_count + 1)),
             params,
             repeat_count
         )

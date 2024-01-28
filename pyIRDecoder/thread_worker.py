@@ -70,7 +70,6 @@ class TimerThreadWorker(object):
                 self.thread = None
 
     def add(self, timer):
-        print(timer)
         if timer not in self.queue:
             self.queue.append(timer)
             self.queue_event.set()
@@ -81,6 +80,9 @@ class TimerThreadWorker(object):
         while not self.stop_event.is_set():
             duration = 999999999999999999999
             for t in self.queue[:]:
+                if t.timer is None:
+                    break
+
                 wait_time = t.adjusted_duration - t.timer.elapsed() - 5000
                 if wait_time < 5000:
                     break

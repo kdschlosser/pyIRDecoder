@@ -51,8 +51,8 @@ def rlc_to_pronto(freq, data):
     pronto_data = [
         '0000',
         '%04X' % (int(round(pronto_carrier)),),
-        '%04X' % (len(data[0]) / 2,),
-        '%04X' % (len(data[1]) / 2,)
+        '%04X' % (int(len(data[0]) / 2),),
+        '%04X' % (int(len(data[1]) / 2),)
     ]
 
     for rlc in data:

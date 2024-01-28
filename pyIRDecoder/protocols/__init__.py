@@ -9,6 +9,7 @@ from .. import IRStreamError  # NOQA
 from .. import RepeatTimeoutExpired  # NOQA
 from .. import RepeatLeadInError  # NOQA
 from .. import RepeatLeadOutError  # NOQA
+from .. import ExpectingMoreData  # NOQA
 
 from .. import ir_code  # NOQA
 from .. import code_wrapper  # NOQA
@@ -653,7 +654,7 @@ class FakeModule(object):
                 token = response.content
                 response = requests.get(
                     self._config.database_url + '/' + token + '/get_name',
-                    params=dict(id=code.hexdecimal)
+                    params=dict(id=code.hexdaecimal)
                 )
 
                 if response.status_code == 200:
@@ -670,7 +671,6 @@ class FakeModule(object):
                     return
 
                 self._last_code = None
-                print('REPEAT_RESET')
 
             code.unbind_released_callback(self.__reset_last_code)
 
@@ -748,8 +748,10 @@ class FakeModule(object):
                 except DecodeError:
                     pass
                 except RepeatLeadInError:
-                    self._last_decoder = self._last_code.decoder
-                    return True
+                    if self._last_code is not None:
+                        self._last_decoder = self._last_code.decoder
+                        return True
+
                 except (RepeatLeadOutError, RepeatTimeoutExpired):
                     return True
 

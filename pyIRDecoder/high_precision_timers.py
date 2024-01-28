@@ -238,4 +238,3 @@ class TimerMS(object):
 if __name__ == '__main__':
     t = TimerMS()
     t.wait(50)
-    print(t.elapsed())

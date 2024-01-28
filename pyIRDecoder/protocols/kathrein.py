@@ -108,8 +108,6 @@ class Kathrein(protocol_base.IrProtocolBase):
             ):
                 raise DecodeError('Checksum failed')
 
-            print(code)
-
         else:
             if self._last_code is None:
                 raise DecodeError(str(code._code.stream_pairs))

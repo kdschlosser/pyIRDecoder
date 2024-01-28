@@ -27,7 +27,7 @@
 
 # Local imports
 from . import protocol_base
-from . import IRException, RepeatLeadInError, DecodeError
+from . import IRException, RepeatLeadInError, DecodeError, EncodeError
 
 
 TIMING = 780
@@ -88,6 +88,9 @@ class Dyson(protocol_base.IrProtocolBase):
     _sequence = []
 
     def decode(self, data: list, frequency: int = 0) -> protocol_base.IRCode:
+
+        raise DecodeError
+
         self.bit_count = self._bit_count1
         self._parameters = self.parameters1
         self._middle_timings = self._middle_timings1
@@ -125,6 +128,7 @@ class Dyson(protocol_base.IrProtocolBase):
         toggle: int,
         repeat_count=0
     ):
+        raise EncodeError
         toggle = protocol_base.IntegerWrapper(
             toggle,
             2,

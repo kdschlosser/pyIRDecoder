@@ -29,7 +29,7 @@ from typing import Sequence
 
 # Local imports
 from . import protocol_base
-from . import DecodeError
+from . import DecodeError, LeadOutError
 
 TIMING = 550
 
@@ -88,7 +88,11 @@ class Aiwa(protocol_base.IrProtocolBase):
         return d, s, f
 
     def decode(self, data: list, frequency: int = 0) -> protocol_base.IRCode:
-        code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        try:
+            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+        except LeadOutError:
+            raise
+
         if self._last_code is not None:
             if self._last_code == code:
                 return self._last_code
@@ -162,10 +166,12 @@ class Aiwa(protocol_base.IrProtocolBase):
                 repeat_count
             )
         else:
+            repeat = self._repeat_lead_in[:] + self._repeat_lead_out[:]
+
             code = protocol_base.IRCode(
                 self,
-                packet[:],
-                [packet[:]],
+                packet[:] + repeat,
+                [packet[:] + repeat],
                 params,
                 repeat_count
             )

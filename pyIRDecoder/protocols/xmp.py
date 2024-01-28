@@ -205,7 +205,6 @@ class XMP(protocol_base.IrProtocolBase):
         if len(decoded) < self.bit_count:
             raise NotEnoughBitsError
         elif len(decoded) > self.bit_count:
-            print(len(decoded), ':', self.bit_count)
             raise TooManyBitsError(str(original_code))
 
         params = dict(frequency=self.frequency)

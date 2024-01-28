@@ -44,19 +44,27 @@ class IRException(Exception):
         return self._msg
 
 
-class TooManyBitsError(IRException):
+class ExpectingMoreData(IRException):
+    """Code is not complete, waiting for more data"""
+
+
+class DecodeError(IRException):
+    """Decode error"""
+
+
+class TooManyBitsError(DecodeError):
     """Too many bits"""
 
 
-class NotEnoughBitsError(IRException):
+class NotEnoughBitsError(DecodeError):
     """Not enough bits"""
 
 
-class LeadInError(IRException):
+class LeadInError(DecodeError):
     """Invalid lead in"""
 
 
-class LeadOutError(IRException):
+class LeadOutError(DecodeError):
     """Invalid lead out"""
 
 
@@ -64,11 +72,7 @@ class EncodeError(IRException):
     """Encode error"""
 
 
-class DecodeError(IRException):
-    """Decode error"""
-
-
-class IRStreamError(IRException):
+class IRStreamError(DecodeError):
     """Invalid IR stream"""
 
 
@@ -143,7 +147,8 @@ __all__ = (
     'RepeatLeadOutError',
     'pronto_to_rlc',
     'pronto_to_mce',
-    'rlc_to_mce'
+    'rlc_to_mce',
+    'ExpectingMoreData'
 )
 
 

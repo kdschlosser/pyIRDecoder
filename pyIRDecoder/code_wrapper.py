@@ -157,7 +157,6 @@ class CodeWrapper(object):
                 expected_lead_out = self._lead_out[-1] - total_time
 
                 if not self._match(-expected_lead_out, code[-1]):
-                    print(self._lead_out[-1], total_time)
                     raise LeadOutError(str(-expected_lead_out) + ':' + str(code[-1]))
         except IndexError:
             pass
@@ -267,7 +266,7 @@ class CodeWrapper(object):
                             cleaned_code += [e_burst]
                             break
                     else:
-                        raise LeadInError(str(burst))
+                        raise LeadInError(str(burst) + ' : ' + str(e_burst))
 
             for i, e_burst in enumerate(lead_out):
                 if e_burst == -999999999999:
@@ -758,8 +757,8 @@ class CodeWrapper(object):
 
     def _match(self, value, expected_timing_value):
         if (
-                value < 0 < expected_timing_value or
-                value > 0 > expected_timing_value
+            value < 0 < expected_timing_value or
+            value > 0 > expected_timing_value
         ):
             return False
 

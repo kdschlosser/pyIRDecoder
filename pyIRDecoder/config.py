@@ -67,7 +67,6 @@ class Config(object):
 
     @database_url.setter
     def database_url(self, value):
-        print('setting database_url:', value)
         self._database_url = value
 
     def __getattr__(self, item):

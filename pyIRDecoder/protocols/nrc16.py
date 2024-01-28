@@ -31,7 +31,8 @@ from . import (
     IRException,
     DecodeError,
     RepeatLeadInError,
-    RepeatLeadOutError
+    RepeatLeadOutError,
+    ExpectingMoreData
 )
 
 
@@ -43,13 +44,11 @@ class NRC16(protocol_base.IrProtocolBase):
     IR decoder for the NRC16 protocol.
     """
     irp = (
-        '{38k,500}<-1,1|1,-1>'
-        '(1,-5,1:1,254:8,127:7,-15m,'
-        '(1,-5,1:1,F:8,D:7,-110m)+,'
-        '1,-5,1:1,254:8,127:7,-15m)'
+        '{38k,500}<-1,1|1,-1>(1,-5,1:1,254:8,127:7,-15m,(1,-5,1:1,F:8,D:7,-110m)+,1,-5,1:1,254:8,127:7,-15m)'
     )
+
     frequency = 38000
-    bit_count = 16
+    bit_count = 48
     encoding = 'lsb'
 
     _lead_in = [TIMING, -TIMING * 5]
@@ -66,10 +65,11 @@ class NRC16(protocol_base.IrProtocolBase):
     ]
 
     _parameters = [
-        ['C0', 0, 0],
+        ['C', 0, 0],
         ['F', 1, 8],
         ['D', 9, 15]
     ]
+
     # [D:0..127,F:0..255]
     encode_parameters = [
         ['device', 0, 127],
@@ -77,41 +77,108 @@ class NRC16(protocol_base.IrProtocolBase):
     ]
 
     def decode(self, data: list, frequency: int = 0) -> protocol_base.IRCode:
-        self.__class__._lead_out = self._lead_out1[:]
-        self._lead_out = self._lead_out1[:]
+        '1,-5,1:1,254:8,127:7,-15m'
+        '1,-5,1:1,F:8,D:7,-110m'
+        '1,-5,1:1,254:8,127:7,-15m'
 
-        try:
-            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-        except IRException:
-            self.__class__._lead_out = self._lead_out2[:]
-            self._lead_out = self._lead_out2[:]
+        codes = []
+        code = []
+        for item in data:
+            code.append(item)
+            if item > 0:
+                continue
 
-            code = protocol_base.IrProtocolBase.decode(self, data, frequency)
-
-        if code.c0 != 1:
-            raise DecodeError('Invalid checksum')
-
-        if self.__class__._lead_out == self._lead_out1:
             if (
-                code.device != 127 or
-                code.function != 254
+                self._match(item, self._lead_out1[0]) or
+                self._match(item, self._bursts[-1][-1] + self._lead_out1[0])
             ):
-                raise DecodeError('Invalid checksum')
+                self._lead_out = self._lead_out1[:]
+                self.bit_count = 16
 
-            if self._last_code is None:
-                raise RepeatLeadInError
+                try:
+                    code = protocol_base.IrProtocolBase.decode(self, code, frequency)
+                except:
+                    self._lead_out =[]
+                    self.bit_count = 48
+                    raise
 
-            raise RepeatLeadOutError
+                if (
+                    code.checksum != 1 or
+                    code.function != 254 or
+                    code.device != 127
+                ):
+                    raise DecodeError
+                codes.append(code)
+                code = []
 
-        if self._last_code is not None:
-            if self._last_code == code:
-                return self._last_code
+            elif (
+                self._match(item, self._lead_out2[0]) or
+                self._match(item, self._bursts[-1][-1] + self._lead_out2[0])
+            ):
 
-            self._last_code.repeat_timer.stop()
-            self._last_code = None
+                self._lead_out = self._lead_out2[:]
+                self.bit_count = 16
 
-        self._last_code = code
-        return code
+                try:
+                    code = protocol_base.IrProtocolBase.decode(
+                        self,
+                        code,
+                        frequency
+                        )
+                except:
+                    self._lead_out = []
+                    self.bit_count = 48
+                    raise
+
+                codes.append(code)
+                code = []
+
+        if not codes:
+            raise DecodeError
+
+        if len(codes) == 1 and len(self._stored_codes) == 3:
+            code = codes[0]
+
+            if self._last_code is not None:
+                if (
+                    code.function == self._last_code.function and
+                    code.device == self._last_code.device
+                ):
+                    return self._last_code
+
+                self._last_code.repeat_timer.stop()
+
+                self._last_code = None
+
+            del self._stored_codes[:]
+            self._stored_codes.append(code)
+            raise ExpectingMoreData
+
+        if len(self._stored_codes) == 3:
+            del self._stored_codes[:]
+
+        for code in codes:
+            self._stored_codes.append(code)
+
+        if len(self._stored_codes) == 3:
+            code1, code2, code3 = self._stored_codes
+
+            if (
+                code1.checksum == 1 == code3.checksum and
+                code1.function == 254 == code3.function and
+                code1.device == 127 == code3.device
+            ):
+
+                code = code1 + code2 + code3
+
+            if self._last_code is not None:
+                self._last_code.repeat_timer.stop()
+                self._last_code = None
+
+            self._last_code = code
+
+            return code
+        raise ExpectingMoreData
 
     def encode(
         self,
@@ -121,22 +188,22 @@ class NRC16(protocol_base.IrProtocolBase):
     ) -> protocol_base.IRCode:
 
         self.__class__._lead_out = self._lead_out1[:]
-        prefix = suffix = self._build_packet(D=127, F=254, C0=1)
+        prefix = suffix = self._build_packet(D=127, F=254, C=1)
 
         self.__class__._lead_out = self._lead_out2[:]
-        packet = self._build_packet(D=device, F=function, C0=1)
+        packet = self._build_packet(D=device, F=function, C=1)
 
         params = dict(
             frequency=self.frequency,
             D=device,
             F=function,
-            C0=1
+            C=1
         )
 
         code = protocol_base.IRCode(
             self,
-            prefix[:] + (packet[:] * (repeat_count + 1)) + suffix[:],
-            [prefix[:]] + ([packet[:]] * (repeat_count + 1)) + [suffix[:]],
+            prefix[:] + packet[:] + suffix[:] + (packet[:] * repeat_count),
+            [prefix[:]] + [packet[:]] + [suffix[:]] + ([packet[:]] * repeat_count),
             params,
             repeat_count
         )

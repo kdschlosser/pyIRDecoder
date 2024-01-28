@@ -84,6 +84,9 @@ class Timer(object):
 
     @property
     def is_running(self):
+        if self.timer is None:
+            return False
+
         return self.timer.elapsed() < self.adjusted_duration
 
 
@@ -140,9 +143,6 @@ class IRCode(object):
         self._repeat_timer = Timer(self.__repeat_reset, repeat_timeout)
         self._repeat_duration = repeat_timeout
         self.bind_released_callback(decoder.reset)
-
-        if self._name is None:
-            _process_thread_worker.add(self.__set_name)
 
     def __iter__(self):
         for item in self.normalized_rlc:
@@ -366,7 +366,7 @@ class IRCode(object):
 
     @property
     def original_mce_pronto(self):
-        code = [abs(item) for item in self.original_mce_rlc]
+        code = [abs(item) for item in self.original_rlc_mce]
         return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
@@ -379,7 +379,7 @@ class IRCode(object):
 
     @property
     def normalized_mce_pronto(self):
-        code = [abs(item) for item in self.normalized_rlc_mcs]
+        code = [abs(item) for item in self.normalized_rlc_mce]
         return pronto.rlc_to_pronto(self.frequency, code)
 
     @property
@@ -476,6 +476,11 @@ class IRCode(object):
         if item.upper() in self._data:
             return self._data[item.upper()]
 
+        if hasattr(IRCode, item):
+            obj = getattr(IRCode, item)
+            if isinstance(obj, property):
+                return obj.fget(self)
+
         raise AttributeError(item)
 
     def __int__(self):
@@ -489,7 +494,7 @@ class IRCode(object):
                 bits += bin(self.code)[2:]
             else:
                 for param, num_bits in self._decoder._code_order:
-                    bts = bin(self._data[param])[2:].zfill(num_bits)[:num_bits]
+                    bts = bin(int(self._data[param]))[2:].zfill(num_bits)[:num_bits]
                     if self._decoder.encoding == 'msb':
                         bits += bts
                     else:

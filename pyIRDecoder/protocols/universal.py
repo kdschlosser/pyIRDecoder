@@ -43,10 +43,11 @@ class Universal(protocol_base.IrProtocolBase):
 
         bursts = norm_data[2:]
         for i in range(0, len(bursts), 2):
-            mark, space = bursts[i], bursts[i + 1]
+            if i + 1 != len(bursts):
+                mark, space = bursts[i], bursts[i + 1]
 
-            if [mark, space] not in bits and [mark, space] != norm_data[-2:]:
-                bits += [[mark, space]]
+                if [mark, space] not in bits and [mark, space] != norm_data[-2:]:
+                    bits += [[mark, space]]
 
         timings = []
 
@@ -66,7 +67,7 @@ class Universal(protocol_base.IrProtocolBase):
 
             last_pair = pair
 
-        if bit_encoding == 'biphase':
+        if bit_encoding == 'biphase' and timings:
             if len(bits) > 2:
                 for mark_1, space_1 in bits[:]:
                     for mark_2, space_2 in bits:

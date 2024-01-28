@@ -37,6 +37,8 @@ class Akai(protocol_base.IrProtocolBase):
     IR decoder for the Akai protocol.
     """
     irp = '{38k,289,lsb}<1,-2.6|1,-6.3>(D:3,F:7,1,^25.3m)*'
+    blah = [289, -751, 289, -1821, 289, -751, 289, -1821, 289, -751, 289, -1821, 289, -1821, 289, -1821, 289, -751, 289, -1821, 289, -8191]
+
     frequency = 38000
     bit_count = 10
     encoding = 'lsb'

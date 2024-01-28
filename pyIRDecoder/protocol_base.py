@@ -84,6 +84,8 @@ class IrProtocolBase(object):
     _repeat_lead_out = []
     _middle_timings = []
     _repeat_bursts = []
+    _stored_codes = []
+
     _has_repeat_lead_out = False
 
     _code_order = []
@@ -197,65 +199,65 @@ class IrProtocolBase(object):
     def function(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'function':
-                return list(range(min_val, max_val + 1))
+                return min_val, max_val
 
-        return []
+        return -1, -1
 
     @property
     def device(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'device':
-                return list(range(min_val, max_val + 1))
+                return min_val, max_val
 
-        return []
+        return -1, -1
 
     @property
     def sub_device(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'sub_device':
-                return list(range(min_val, max_val + 1))
+                return min_val, max_val
 
-        return []
+        return -1, -1
 
     @property
     def extended_function(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'extended_function':
-                return list(range(min_val, max_val + 1))
+                return min_val, max_val
 
-        return []
+        return -1, -1
 
     @property
     def mode(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'mode':
-                return list(range(min_val, max_val + 1))
+                return min_val, max_val
 
-        return []
+        return -1, -1
 
     @property
     def toggle(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'toggle':
-                return list(range(min_val, max_val + 1))
+                return min_val, max_val
 
-        return []
+        return -1, -1
 
     @property
     def oem1(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'oem1':
-                return list(range(min_val, max_val + 1))
+                return min_val, max_val
 
-        return []
+        return -1, -1
 
     @property
     def oem2(self) -> Sequence[int]:
         for name, min_val, max_val in self.encode_parameters:
             if name == 'oem2':
-                return list(range(min_val, max_val + 1))
+                return min_val, max_val
 
-        return []
+        return -1, -1
 
     def __call__(self, parent):
         cls = self.__class__(parent)
@@ -292,6 +294,8 @@ class IrProtocolBase(object):
     def reset(self, code: IRCode) -> None:
         if self._last_code is not None and self._last_code == code:
             self._last_code = None
+
+            del self._stored_codes[:]
 
     def encode(self, *args, **kwargs):
         raise NotImplementedError
@@ -452,6 +456,12 @@ class IrProtocolBase(object):
     def _match(self, value, expected_timing_value, tolerance=None):
         if tolerance is None:
             tolerance = self.tolerance
+
+        if (
+            value < 0 < expected_timing_value or
+            value > 0 > expected_timing_value
+        ):
+            return False
 
         high = math.floor(
             expected_timing_value +

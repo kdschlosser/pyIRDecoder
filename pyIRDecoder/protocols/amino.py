@@ -107,14 +107,14 @@ class Amino(protocol_base.IrProtocolBase):
         if self._last_code is not None:
             if (
                 self._last_code == code and
-                self._last_code.toggle == code.toggle
+                code.toggle != 1
             ):
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
 
-        if code.toggle == 1:
-            raise RepeatLeadInError
+        if code.toggle != 1:
+            raise DecodeError
 
         self._last_code = code
         return code
@@ -205,7 +205,7 @@ class Amino(protocol_base.IrProtocolBase):
 
         code = protocol_base.IRCode(
             self,
-            packet1[:] + (packet2[:] * (repeat_count + 1)),
+            packet,
             [packet1[:]] + ([packet2[:]] * (repeat_count + 1)),
             params,
             repeat_count

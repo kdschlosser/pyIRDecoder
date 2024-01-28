@@ -29,9 +29,9 @@
 from . import protocol_base
 from . import (
     DecodeError, 
-    RepeatLeadInError,
     IRException,
-    LeadOutError
+    LeadOutError,
+    ExpectingMoreData
 )
 
 TIMING = 422
@@ -95,16 +95,22 @@ class F120(protocol_base.IrProtocolBase):
 
         try:
             code = protocol_base.IrProtocolBase.decode(self, data, frequency)
+
+            if code.h != 0:
+                raise DecodeError('Invalid checksum')
+            
             self._saved_code = code
-            raise RepeatLeadInError
+            raise ExpectingMoreData
+
         except LeadOutError:
+            if self._saved_code is None:
+                raise DecodeError
+
             self._lead_out = self._lead_out2
             try:
                 code2 = (
                     protocol_base.IrProtocolBase.decode(self, data, frequency)
                 )
-                if self._saved_code is None:
-                    raise DecodeError
                 code1 = self._saved_code
                 self._saved_code = None
 
@@ -123,7 +129,7 @@ class F120(protocol_base.IrProtocolBase):
 
                 if (
                     code.device != code.d1 or
-                    code.h != 0 != code.h1 or
+                    code.h != code.h1 or
                     code.function != code.f1
                 ):
                     raise DecodeError('Invalid checksum')
@@ -133,6 +139,9 @@ class F120(protocol_base.IrProtocolBase):
                 return self._last_code
 
             self._last_code.repeat_timer.stop()
+
+        if code.h != 0:
+            raise DecodeError('Invalid checksum')
 
         self._last_code = code
         return code

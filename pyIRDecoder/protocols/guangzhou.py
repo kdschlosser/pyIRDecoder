@@ -249,7 +249,7 @@ class GuangZhou(protocol_base.IrProtocolBase):
         code = protocol_base.IRCode(
             self,
             packet[:] + repeat[:],
-            [packet[:]] + [repeat[:]],
+            [packet[:]] + repeat[:],
             params,
             repeat_count
         )
